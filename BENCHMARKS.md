@@ -3,15 +3,19 @@
 > Fill these tables from **your own runs**. Do not copy course reference numbers.
 
 ## Lab 1 — Tokenizer audit
-| Tokenizer | AR fertility | EN fertility | AR p95 len | EN p95 len | AR UNK rate |
-|---|---:|---:|---:|---:|---:|
-| mBERT | | | | | |
-| XLM-R | | | | | |
-| CAMeLBERT | | | | | |
-| DistilBERT | | | | | |
+## Lab 1 — Tokenizer Audit
 
-- Golden preprocessing: ___ / 25 passed
-- PII masking recall: ___ / 60 = ___%
+| Tokenizer  | Arabic Fertility | English Fertility | Arabic p95 | English p95 |
+| ---------- | ---------------: | ----------------: | ---------: | ----------: |
+| mBERT      |            2.153 |             1.510 |         27 |          25 |
+| XLM-R      |            1.672 |             1.434 |         21 |          23 |
+| CAMeLBERT  |            1.405 |             2.705 |         20 |          38 |
+| DistilBERT |            4.527 |             1.298 |         47 |          21 |
+
+XLM-R provided the most balanced tokenization performance across Arabic and English. CAMeLBERT achieved the best Arabic fertility, but its English fertility and sequence lengths were much higher. DistilBERT performed well on English but poorly on Arabic.
+
+- Golden preprocessing: 25 / 25 passed
+- PII masking recall: **60 / 60 = 100%**
 
 ## Lab 3 — Models
 | Model | Metric | Validation | Frozen test | Train time |

@@ -1,11 +1,17 @@
 # Decision Records
 
 ## tokenizer
-- Chosen checkpoint(s):
-- Arabic fertility evidence:
-- English fertility evidence:
-- p95 length evidence:
-- Operational trade-off / rationale:
+## Lab 1 — Tokenizer Decision
+
+**Chosen checkpoint:** `xlm-roberta-base`
+
+**Arabic fertility:** 1.672
+**English fertility:** 1.434
+**Arabic p95 sequence length:** 21
+**English p95 sequence length:** 23
+
+**Why this choice fits Bayan:**
+XLM-R was selected because it provides the best overall balance between Arabic and English tokenization. It produces relatively low fertility and short sequence lengths in both languages. CAMeLBERT performs better on Arabic, but its English fertility is much higher, while DistilBERT performs well on English but poorly on Arabic. Since Bayan is a bilingual Arabic-English system, XLM-R is the most suitable balanced choice.
 
 ## arabic-model
 - Incumbent:
