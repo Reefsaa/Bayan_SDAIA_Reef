@@ -105,6 +105,18 @@ mBERT has a larger embedding share because its multilingual vocabulary must repr
 - Causal mask validation result: `True`.
 - This corresponds to decoder-style causal attention.
 
+##  — Attention Diagnostics Findings
+
+The attention diagnostics showed that the causal mask is valid and prevents tokens from attending to future positions.
+
+Without a correct padding mask, the model assigned attention mass to PAD tokens (73.5651). With the correct attention mask, PAD attention mass was reduced to 0.0, confirming that padding leakage was successfully eliminated.
+
+[SEP] sink behaviour was observed, with mean attention to [SEP] of 0.0974 for Example 1 and 0.1505 for Example 2.
+
+Head 7 showed the strongest adjacency-looking behaviour with an adjacency score of 0.3636.
+
+Model family for the causal mask: Decoder-style causal attention.
+
 
 ## Lab 4 — Dialect audit
 - Distribution:
