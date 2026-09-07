@@ -1,12 +1,11 @@
 # Decision Records
 
 ## tokenizer
-- Chosen checkpoint(s):
-- Arabic fertility evidence:
-- English fertility evidence:
-- p95 length evidence:
-- Operational trade-off / rationale:
-
+- Chosen checkpoint(s): XLM-R (`xlm-roberta-base`)
+- Arabic fertility evidence: 1.672
+- English fertility evidence: 1.434
+- p95 length evidence: AR = 21, EN = 23
+- Operational trade-off / rationale: XLM-R was selected because it provides the best balanced tokenisation across Bayan's bilingual Arabic and English feedback. CAMeLBERT performs better on Arabic, while DistilBERT performs better on English, but XLM-R provides the strongest overall trade-off across both languages with an Arabic UNK rate of 0.0000.
 ## arabic-model
 - Incumbent:
 - Candidate:
