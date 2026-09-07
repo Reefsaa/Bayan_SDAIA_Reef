@@ -69,7 +69,30 @@ def main():
     assert future_mass < 1e-6
 
     print("✅ Causal masking passed!")
+    # 4. Pad-attention leakage
+    x = torch.randn(1, 5, 768)
 
+    pad_mask = torch.tensor(
+        [[1, 1, 1, 0, 0]],
+        dtype=torch.bool
+    )
+
+    mha_no_mask = MultiHeadAttention(d_model=768, num_heads=12)
+    _, weights_no_mask = mha_no_mask(x, x, x)
+
+    pad_mass_no_mask = weights_no_mask[..., 3:].sum().item()
+    print("Pad attention mass without mask:", pad_mass_no_mask)
+
+    mha_masked = MultiHeadAttention(d_model=768, num_heads=12)
+    _, weights_masked = mha_masked(x, x, x, mask=pad_mask[:, None, None, :])
+
+    pad_mass_masked = weights_masked[..., 3:].sum().item()
+    print("Pad attention mass with mask:", pad_mass_masked)
+
+    assert pad_mass_no_mask > 0
+    assert pad_mass_masked < 1e-6
+
+    print("✅ Pad-attention leakage test passed!")
 
 if __name__ == "__main__":
     main()
