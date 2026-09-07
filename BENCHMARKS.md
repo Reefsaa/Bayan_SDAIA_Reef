@@ -59,3 +59,36 @@
 - HTTP p99, 16 concurrent:
 - classifier quantisation decision:
 - NER quantisation decision:
+
+
+## Lab 1 — Tokenizer Audit
+
+| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |
+|:------------|---------------:|---------------:|----------------:|----------------:|
+| mBERT       |          2.153 |          1.51  |              27 |              25 |
+| XLM-R       |          1.672 |          1.434 |              21 |              23 |
+| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |
+| DistilBERT  |          4.527 |          1.298 |              47 |              21 |
+
+
+## Lab 1 — Tokenizer Audit
+
+| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |   AR UNK rate |
+|:------------|---------------:|---------------:|----------------:|----------------:|--------------:|
+| mBERT       |          2.153 |          1.51  |              27 |              25 |        0.0045 |
+| XLM-R       |          1.672 |          1.434 |              21 |              23 |        0      |
+| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |        0.008  |
+| DistilBERT  |          4.527 |          1.298 |              47 |              21 |        0.0022 |
+
+
+## Lab 1 — Tokenizer Audit
+
+| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |   AR UNK rate |
+|:------------|---------------:|---------------:|----------------:|----------------:|--------------:|
+| mBERT       |          2.153 |          1.51  |              27 |              25 |        0.0045 |
+| XLM-R       |          1.672 |          1.434 |              21 |              23 |        0      |
+| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |        0.008  |
+| DistilBERT  |          4.527 |          1.298 |              47 |              21 |        0.0022 |
+
+- Golden preprocessing: 25 / 25 passed
+- PII masking recall: 60 / 60 = 100%
