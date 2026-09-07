@@ -81,12 +81,30 @@ Measured results:
 
 ### Tokenizer Audit Findings
 XLM-R provides the most balanced tokenisation across both Arabic and English. CAMeLBERT performs best on Arabic with the lowest Arabic fertility (1.405) and Arabic p95 length (20.0), but performs poorly on English with fertility 3.705 and p95 length 38.0. DistilBERT performs well on English but poorly on Arabic. Since Bayan contains bilingual Arabic and English feedback, XLM-R offers the strongest overall balance for the shared bilingual pipeline.
+## Lab 2 — Parameter Audit
 
-## Lab 2 — Parameter audit
-| Checkpoint | Total params | Embeddings % | Other notes |
-|---|---:|---:|---|
-| mBERT | | | |
-| CAMeLBERT | | | |
+Parameter comparison between `bert-base-multilingual-cased` (mBERT) and `CAMeL-Lab/bert-base-arabic-camelbert-mix` (CAMeLBERT):
+
+| Parameter Bucket | mBERT | CAMeLBERT |
+| Embeddings| 92,208,384 | 23,436,288 |
+| Attention | 28,366,848 | 28,366,848 |
+| FFN       | 56,669,184 | 56,669,184 |
+| Norms     | 18,432     | 18,432 |
+| Pooler    | 590,592    | 590,592 |
+| Other     | 0          | 0 |
+| Total     | 177,853,440 | 109,081,344 |
+The attention, FFN, norms, and pooler parameter counts are the same in both models, while mBERT has substantially more embedding parameters.
+
+**Why is the embedding share different?**  
+mBERT has a larger embedding share because its multilingual vocabulary must represent many languages, creating a multilingual vocabulary tax compared with the more Arabic-focused CAMeLBERT.
+
+### Causal Mask Verification
+- A lower-triangular causal mask was applied so token position `i` can attend only to positions `<= i`.
+- The resulting attention matrix was lower triangular.
+- Future attention mass was `0.0`.
+- Causal mask validation result: `True`.
+- This corresponds to decoder-style causal attention.
+
 
 ## Lab 4 — Dialect audit
 - Distribution:

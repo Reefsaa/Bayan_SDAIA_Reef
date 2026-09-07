@@ -1,17 +1,29 @@
 # BENCHMARKS
 
 > Fill these tables from **your own runs**. Do not copy course reference numbers.
+## Lab 1 — Tokenizer Audit
 
-## Lab 1 — Tokenizer audit
-| Tokenizer | AR fertility | EN fertility | AR p95 len | EN p95 len | AR UNK rate |
-|---|---:|---:|---:|---:|---:|
-| mBERT | | | | | |
-| XLM-R | | | | | |
-| CAMeLBERT | | | | | |
-| DistilBERT | | | | | |
+| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |   AR UNK rate |
+|:------------|---------------:|---------------:|----------------:|----------------:|--------------:|
+| mBERT       |          2.153 |          1.51  |              27 |              25 |        0.0045 |
+| XLM-R       |          1.672 |          1.434 |              21 |              23 |        0      |
+| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |        0.008  |
+| DistilBERT  |          4.527 |          1.298 |              47 |              21 |        0.0022 |
 
-- Golden preprocessing: ___ / 25 passed
-- PII masking recall: ___ / 60 = ___%
+- Golden preprocessing: 25 / 25 passed
+- PII masking recall: 60 / 60 = 100%
+
+## Lab 2 — Attention-map Diagnostics and PAD Leak
+
+- Numerical equivalence: True
+- Causal mask valid: True
+- PAD attention mass without mask: 73.5651
+- PAD attention mass with correct mask: 0.0
+- PAD leak reduced: True
+- Example 1 mean attention to [SEP]: 0.0974
+- Example 2 mean attention to [SEP]: 0.1505
+- Most adjacency-looking head: Head 7
+- Adjacency score: 0.3636
 
 ## Lab 3 — Models
 | Model | Metric | Validation | Frozen test | Train time |
@@ -61,34 +73,5 @@
 - NER quantisation decision:
 
 
-## Lab 1 — Tokenizer Audit
-
-| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |
-|:------------|---------------:|---------------:|----------------:|----------------:|
-| mBERT       |          2.153 |          1.51  |              27 |              25 |
-| XLM-R       |          1.672 |          1.434 |              21 |              23 |
-| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |
-| DistilBERT  |          4.527 |          1.298 |              47 |              21 |
 
 
-## Lab 1 — Tokenizer Audit
-
-| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |   AR UNK rate |
-|:------------|---------------:|---------------:|----------------:|----------------:|--------------:|
-| mBERT       |          2.153 |          1.51  |              27 |              25 |        0.0045 |
-| XLM-R       |          1.672 |          1.434 |              21 |              23 |        0      |
-| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |        0.008  |
-| DistilBERT  |          4.527 |          1.298 |              47 |              21 |        0.0022 |
-
-
-## Lab 1 — Tokenizer Audit
-
-| Tokenizer   |   AR Fertility |   EN Fertility |   AR p95 Length |   EN p95 Length |   AR UNK rate |
-|:------------|---------------:|---------------:|----------------:|----------------:|--------------:|
-| mBERT       |          2.153 |          1.51  |              27 |              25 |        0.0045 |
-| XLM-R       |          1.672 |          1.434 |              21 |              23 |        0      |
-| CAMeLBERT   |          1.405 |          2.705 |              20 |              38 |        0.008  |
-| DistilBERT  |          4.527 |          1.298 |              47 |              21 |        0.0022 |
-
-- Golden preprocessing: 25 / 25 passed
-- PII masking recall: 60 / 60 = 100%
