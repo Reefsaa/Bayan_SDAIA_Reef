@@ -1,4 +1,4 @@
-"""Lab 4: compare Arabic-centric checkpoints on all/Gulf/MSA slices."""
+"""Lab 4: compare Arabic-centric checkpoints on All/Gulf/MSA slices."""
 
 import random
 from pathlib import Path
@@ -61,6 +61,7 @@ def load_arabic_data():
         ]
     ).copy()
 
+    # Keep Arabic records only
     df = df[
         df["lang"].astype(str).str.lower().eq("ar")
     ].copy()
@@ -69,6 +70,7 @@ def load_arabic_data():
 
 
 def grouped_split(df):
+    # 70% train / 30% temporary
     splitter1 = GroupShuffleSplit(
         n_splits=1,
         test_size=0.30,
@@ -85,6 +87,7 @@ def grouped_split(df):
     train_df = df.iloc[train_idx].reset_index(drop=True)
     temp_df = df.iloc[temp_idx].reset_index(drop=True)
 
+    # Split temporary data into validation/test
     splitter2 = GroupShuffleSplit(
         n_splits=1,
         test_size=0.50,
@@ -105,7 +108,9 @@ def grouped_split(df):
 
 
 def build_label_maps(df):
-    labels = sorted(df["topic"].astype(str).unique())
+    labels = sorted(
+        df["topic"].astype(str).unique()
+    )
 
     label2id = {
         label: idx
@@ -121,13 +126,15 @@ def build_label_maps(df):
 
 
 def make_dataset(df, label2id):
-    return Dataset.from_dict({
-        "text": df["text"].astype(str).tolist(),
-        "labels": [
-            label2id[str(label)]
-            for label in df["topic"]
-        ],
-    })
+    return Dataset.from_dict(
+        {
+            "text": df["text"].astype(str).tolist(),
+            "labels": [
+                label2id[str(label)]
+                for label in df["topic"]
+            ],
+        }
+    )
 
 
 def compute_metrics(eval_pred):
@@ -189,8 +196,12 @@ def evaluate_slice(
 
     return {
         "count": len(df),
-        "macro_f1": metrics[f"{prefix}_macro_f1"],
-        "accuracy": metrics[f"{prefix}_accuracy"],
+        "macro_f1": metrics[
+            f"{prefix}_macro_f1"
+        ],
+        "accuracy": metrics[
+            f"{prefix}_accuracy"
+        ],
     }
 
 
@@ -208,6 +219,7 @@ def train_and_evaluate(
     print(f"CHECKPOINT: {checkpoint}")
     print("=" * 60)
 
+    # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         checkpoint
     )
@@ -239,6 +251,7 @@ def train_and_evaluate(
         batched=True,
     )
 
+    # Load model
     model = AutoModelForSequenceClassification.from_pretrained(
         checkpoint,
         num_labels=len(label2id),
@@ -252,6 +265,7 @@ def train_and_evaluate(
         / model_name.lower().replace("-", "_")
     )
 
+    # Training configuration
     training_args = TrainingArguments(
         output_dir=str(output_dir),
         learning_rate=2e-5,
@@ -266,6 +280,10 @@ def train_and_evaluate(
         greater_is_better=True,
         report_to="none",
         seed=SEED,
+
+        # CAMeLBERT tensors can be non-contiguous.
+        # Save with PyTorch instead of safetensors.
+        save_safetensors=False,
     )
 
     trainer = Trainer(
@@ -280,8 +298,10 @@ def train_and_evaluate(
         compute_metrics=compute_metrics,
     )
 
+    # Train
     trainer.train()
 
+    # Evaluate ALL test records
     all_results = evaluate_slice(
         trainer,
         tokenizer,
@@ -290,6 +310,7 @@ def train_and_evaluate(
         "all",
     )
 
+    # Gulf slice
     gulf_df = test_df[
         test_df["dialect_region"]
         .astype(str)
@@ -297,6 +318,7 @@ def train_and_evaluate(
         .eq("gulf")
     ].reset_index(drop=True)
 
+    # MSA slice
     msa_df = test_df[
         test_df["dialect_region"]
         .astype(str)
@@ -320,6 +342,7 @@ def train_and_evaluate(
         "msa",
     )
 
+    # Save final model
     trainer.save_model(
         str(output_dir)
     )
@@ -358,12 +381,15 @@ def print_results(results):
                     f"N={values['count']:4d} | "
                     "No samples"
                 )
+
             else:
                 print(
                     f"  {slice_name.upper():5s} | "
                     f"N={values['count']:4d} | "
-                    f"Macro-F1={values['macro_f1']:.4f} | "
-                    f"Accuracy={values['accuracy']:.4f}"
+                    f"Macro-F1="
+                    f"{values['macro_f1']:.4f} | "
+                    f"Accuracy="
+                    f"{values['accuracy']:.4f}"
                 )
 
 
@@ -377,7 +403,9 @@ def main():
     print(f"Arabic records: {len(df)}")
 
     print("\nDialect distribution:")
-    print(df["dialect_region"].value_counts())
+    print(
+        df["dialect_region"].value_counts()
+    )
 
     train_df, val_df, test_df = grouped_split(
         df
@@ -392,7 +420,9 @@ def main():
         train_df
     )
 
-    print(f"\nLabels: {list(label2id.keys())}")
+    print(
+        f"\nLabels: {list(label2id.keys())}"
+    )
 
     results = []
 
@@ -411,6 +441,7 @@ def main():
 
     print_results(results)
 
+    # Choose winner based on Gulf macro-F1
     winner = max(
         results,
         key=lambda x: (
@@ -422,8 +453,8 @@ def main():
 
     print("\n" + "=" * 78)
     print(
-        "WINNER BY GULF-SLICE MACRO-F1:"
-        f" {winner['model']}"
+        "WINNER BY GULF-SLICE MACRO-F1: "
+        f"{winner['model']}"
     )
     print("=" * 78)
 
