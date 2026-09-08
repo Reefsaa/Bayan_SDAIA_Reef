@@ -25,13 +25,14 @@
 - Most adjacency-looking head: Head 7
 - Adjacency score: 0.3636
 
-## Lab 3 — Models
-| Model | Metric | Validation | Frozen test | Train time |
-|---|---|---:|---:|---:|
-| TF-IDF + LinearSVC | macro-F1 | | | |
-| Topic classifier | macro-F1 | | | |
-| NER | entity-F1 | | | |
-| QA | span/null smoke | | | |
+## Lab 3A — Topic Classification
+
+- Validation Accuracy: 1.0000
+- Validation Macro F1: 1.0000
+- Test Accuracy: 1.0000
+- Test Macro F1: 1.0000
+- Grouped split integrity test: Passed
+- Model artifact: `artifacts/topic_classifier`
 
 ## Lab 4 — Arabic model bake-off
 | Checkpoint | macro-F1 all | Gulf | MSA | AR fertility |
