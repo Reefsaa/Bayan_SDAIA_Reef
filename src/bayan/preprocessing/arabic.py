@@ -54,5 +54,15 @@ def normalize_arabic(text: str, profile: ArabicProfile) -> str:
 
 
 def segment(text: str) -> list[str]:
-    # Lab 4 Step 3 will implement CAMeL Tools clitic segmentation.
-    return text.split()
+    from camel_tools.disambig.mle import MLEDisambiguator
+    from camel_tools.tokenizers.morphological import MorphologicalTokenizer
+
+    mle = MLEDisambiguator.pretrained()
+    tokenizer = MorphologicalTokenizer(
+        disambiguator=mle,
+        scheme="d3tok",
+        split=True
+    )
+
+    words = text.split()
+    return tokenizer.tokenize(words)

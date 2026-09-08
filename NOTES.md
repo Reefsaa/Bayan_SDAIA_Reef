@@ -119,5 +119,13 @@ Model family for the causal mask: Decoder-style causal attention.
 
 
 ## Lab 4 — Dialect audit
-- Distribution:
-- One-sentence implication for MSA-only evaluation:
+
+
+Arabic records: 7200
+
+Dialect / region distribution:
+- Gulf: 4800 (66.67%)
+- MSA: 2400 (33.33%)
+
+Implication:
+Evaluating only on MSA would not represent the full Arabic data distribution, because most Arabic records are Gulf dialect. Evaluation should include the Gulf slice to better reflect real model performance.
