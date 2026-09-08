@@ -33,6 +33,9 @@
 - Test Macro F1: 1.0000
 - Grouped split integrity test: Passed
 - Model artifact: `artifacts/topic_classifier`
+
+
+
 ## Lab 3B — NER Results
 
 - Checkpoint: xlm-roberta-base
@@ -47,6 +50,27 @@
 
 Target: NER entity-level F1 >= 0.80
 Result: PASS
+
+## Lab 3B — NER and QA Results
+
+### NER
+- NER alignment tests: 8 passed
+- Validation Precision: 1.0000
+- Validation Recall: 1.0000
+- Validation F1: 1.0000
+- Validation Accuracy: 1.0000
+- Test Precision: 1.0000
+- Test Recall: 1.0000
+- Test F1: 1.0000
+- Test Accuracy: 1.0000
+- Target entity-level F1 >= 0.80: PASS
+
+### Extractive QA
+- QA span selection tests: 2 passed
+- QA smoke script: completed
+- Supplied smoke fixture: 12 answerable, 0 unanswerable
+- README expected fixture: 9 answerable, 3 unanswerable
+- Fixture mismatch documented
 ## Lab 4 — Arabic model bake-off
 | Checkpoint | macro-F1 all | Gulf | MSA | AR fertility |
 |---|---:|---:|---:|---:|
