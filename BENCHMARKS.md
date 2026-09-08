@@ -71,12 +71,25 @@ Result: PASS
 - Supplied smoke fixture: 12 answerable, 0 unanswerable
 - README expected fixture: 9 answerable, 3 unanswerable
 - Fixture mismatch documented
-## Lab 4 — Arabic model bake-off
-| Checkpoint | macro-F1 all | Gulf | MSA | AR fertility |
-|---|---:|---:|---:|---:|
-| multilingual incumbent | | | | |
-| Arabic dialect-aware | | | | |
-| optional third model | | | | |
+
+### Lab 4 — Arabic Model Bake-off
+
+### Dataset
+- Arabic records: 7200
+- Gulf: 4800
+- MSA: 2400
+- Grouped test size: 1097
+  - Gulf: 756
+  - MSA: 341
+
+### Results
+
+| Model | All Macro-F1 | Gulf Macro-F1 | MSA Macro-F1 | Accuracy |
+| CAMeLBERT-mix | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| CAMeLBERT-DA | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+
+### Observation
+Both CAMeLBERT-mix and CAMeLBERT-DA achieved identical performance on the supplied Bayan dataset. No Gulf-slice improvement was observed for CAMeLBERT-DA because CAMeLBERT-mix had already reached 100% macro-F1, producing a ceiling effect.
 
 ## Lab 5 — Search
 | Configuration | recall@10 | MRR@10 | p50 latency/query |
