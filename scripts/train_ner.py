@@ -1,4 +1,4 @@
-"""Lab 3B: Fine-tune NER token classification."""
+"""Lab 3B / Lab 4: Fine-tune NER token classification."""
 
 import argparse
 import random
@@ -21,6 +21,7 @@ from transformers import (
 )
 
 from bayan.models.ner import align_labels
+from bayan.preprocessing.arabic import segment
 
 
 CHECKPOINT = "xlm-roberta-base"
@@ -29,11 +30,19 @@ DATA_PATH = Path("data/models/bayan_ner.conll")
 
 def parse_args():
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
         "--output-dir",
         default="artifacts/ner",
         help="Where to save the trained NER artefact.",
     )
+
+    parser.add_argument(
+        "--use-segmentation",
+        action="store_true",
+        help="Apply Arabic clitic segmentation before NER training.",
+    )
+
     return parser.parse_args()
 
 
@@ -69,6 +78,37 @@ def read_conll(path):
         labels.append(current_labels)
 
     return sentences, labels
+
+
+def apply_segmentation(sentences, labels):
+    segmented_sentences = []
+    segmented_labels = []
+
+    for tokens, token_labels in zip(sentences, labels):
+        new_tokens = []
+        new_labels = []
+
+        for token, label in zip(tokens, token_labels):
+            pieces = segment(token)
+
+            if not pieces:
+                pieces = [token]
+
+            for piece_index, piece in enumerate(pieces):
+                new_tokens.append(piece)
+
+                if piece_index == 0:
+                    new_labels.append(label)
+                else:
+                    # Keep the same entity label on additional clitic pieces.
+                    # This avoids introducing new label classes that do not
+                    # exist in the supplied CoNLL fixture.
+                    new_labels.append(label)
+
+        segmented_sentences.append(new_tokens)
+        segmented_labels.append(new_labels)
+
+    return segmented_sentences, segmented_labels
 
 
 def split_data(tokens, labels, seed=42):
@@ -107,7 +147,15 @@ def main():
     # 1. Read CoNLL data
     sentences, ner_labels = read_conll(DATA_PATH)
 
-    # 2. Build label mappings
+    # 2. Optional Lab 4 Arabic clitic segmentation
+    if args.use_segmentation:
+        print("Applying Arabic clitic segmentation...")
+        sentences, ner_labels = apply_segmentation(
+            sentences,
+            ner_labels,
+        )
+
+    # 3. Build label mappings
     unique_labels = sorted(
         {label for sequence in ner_labels for label in sequence}
     )
@@ -127,7 +175,7 @@ def main():
         for sequence in ner_labels
     ]
 
-    # 3. Train / validation / test split
+    # 4. Train / validation / test split
     (
         (train_tokens, train_labels),
         (val_tokens, val_labels),
@@ -149,13 +197,13 @@ def main():
         "ner_tags": test_labels,
     })
 
-    # 4. Load tokenizer
+    # 5. Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         CHECKPOINT,
         use_fast=True,
     )
 
-    # 5. Tokenize + align BIO labels to subwords
+    # 6. Tokenize + align labels to subwords
     def tokenize_and_align(batch):
         tokenized = tokenizer(
             batch["tokens"],
@@ -199,7 +247,7 @@ def main():
         tokenizer=tokenizer
     )
 
-    # 6. Load NER model
+    # 7. Load NER model
     model = AutoModelForTokenClassification.from_pretrained(
         CHECKPOINT,
         num_labels=len(unique_labels),
@@ -207,7 +255,7 @@ def main():
         label2id=label2id,
     )
 
-    # 7. Entity-level seqeval metrics
+    # 8. Entity-level seqeval metrics
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
 
@@ -257,7 +305,7 @@ def main():
             ),
         }
 
-    # 8. Training configuration
+    # 9. Training configuration
     training_args = TrainingArguments(
         output_dir=str(output_dir),
         learning_rate=2e-5,
@@ -284,24 +332,25 @@ def main():
         compute_metrics=compute_metrics,
     )
 
-    print("=== Lab 3B: Fine-tuning NER ===")
+    print("=== NER Fine-tuning ===")
     print(f"Checkpoint: {CHECKPOINT}")
+    print(f"Segmentation: {args.use_segmentation}")
     print(f"Sentences: {len(sentences)}")
     print(f"Train: {len(train_ds)}")
     print(f"Validation: {len(val_ds)}")
     print(f"Test: {len(test_ds)}")
     print(f"Labels: {unique_labels}")
 
-    # 9. Train
+    # 10. Train
     trainer.train()
 
-    # 10. Validation evaluation
+    # 11. Validation evaluation
     val_metrics = trainer.evaluate(val_ds)
 
     print("\n=== Validation Results ===")
     print(val_metrics)
 
-    # 11. Test evaluation
+    # 12. Test evaluation
     test_metrics = trainer.evaluate(
         test_ds,
         metric_key_prefix="test",
@@ -310,7 +359,7 @@ def main():
     print("\n=== Test Results ===")
     print(test_metrics)
 
-    # 12. Save artefact
+    # 13. Save artefact
     trainer.save_model(str(output_dir))
     tokenizer.save_pretrained(str(output_dir))
 
