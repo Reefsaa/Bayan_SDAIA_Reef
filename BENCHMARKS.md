@@ -33,7 +33,20 @@
 - Test Macro F1: 1.0000
 - Grouped split integrity test: Passed
 - Model artifact: `artifacts/topic_classifier`
+## Lab 3B — NER Results
 
+- Checkpoint: xlm-roberta-base
+- Validation Precision: 1.0
+- Validation Recall: 1.0
+- Validation F1: 1.0
+- Validation Accuracy: 1.0
+- Test Precision: 1.0
+- Test Recall: 1.0
+- Test F1: 1.0
+- Test Accuracy: 1.0
+
+Target: NER entity-level F1 >= 0.80
+Result: PASS
 ## Lab 4 — Arabic model bake-off
 | Checkpoint | macro-F1 all | Gulf | MSA | AR fertility |
 |---|---:|---:|---:|---:|
