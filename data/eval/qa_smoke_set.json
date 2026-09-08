@@ -1,4 +1,4 @@
-""Lab 3B: run the QA smoke set and report fixture consistency.""
+"""Lab 3B: run the QA smoke set and report fixture consistency."""
 
 import json
 from pathlib import Path
