@@ -75,3 +75,9 @@
 
 
 
+
+## Lab 3A — TF-IDF + LinearSVC Baseline
+
+- Train rows: 8400
+- Validation rows: 2400
+- Macro-F1: 1.0000
