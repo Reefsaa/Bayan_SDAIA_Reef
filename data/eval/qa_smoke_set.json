@@ -1,147 +1,74 @@
-{
-  "version": "bayan-squad2-1.0",
-  "data": [
-    {
-      "title": "Service 01",
-      "paragraphs": [
-        {
-          "context": "Service 01 requires a verified account. The processing time is 2 business days. The service fee is 50 SAR. Applications are submitted through the Bayan portal.",
-          "qas": [
-            {
-              "id": "QA-0001",
-              "question": "How long does Service 01 take?",
-              "answers": [
-                {
-                  "text": "2 business days",
-                  "answer_start": 63
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0002",
-              "question": "What is the fee for Service 01?",
-              "answers": [
-                {
-                  "text": "50 SAR",
-                  "answer_start": 99
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0003",
-              "question": "Where is the application for Service 01 submitted?",
-              "answers": [
-                {
-                  "text": "Bayan portal",
-                  "answer_start": 146
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0004",
-              "question": "How long does Service 01 take?",
-              "answers": [
-                {
-                  "text": "2 business days",
-                  "answer_start": 63
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0005",
-              "question": "What is the fee for Service 01?",
-              "answers": [
-                {
-                  "text": "50 SAR",
-                  "answer_start": 99
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0006",
-              "question": "Where is the application for Service 01 submitted?",
-              "answers": [
-                {
-                  "text": "Bayan portal",
-                  "answer_start": 146
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0007",
-              "question": "How long does Service 01 take?",
-              "answers": [
-                {
-                  "text": "2 business days",
-                  "answer_start": 63
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0008",
-              "question": "What is the fee for Service 01?",
-              "answers": [
-                {
-                  "text": "50 SAR",
-                  "answer_start": 99
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0009",
-              "question": "Where is the application for Service 01 submitted?",
-              "answers": [
-                {
-                  "text": "Bayan portal",
-                  "answer_start": 146
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0010",
-              "question": "How long does Service 01 take?",
-              "answers": [
-                {
-                  "text": "2 business days",
-                  "answer_start": 63
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0011",
-              "question": "What is the fee for Service 01?",
-              "answers": [
-                {
-                  "text": "50 SAR",
-                  "answer_start": 99
-                }
-              ],
-              "is_impossible": false
-            },
-            {
-              "id": "QA-0012",
-              "question": "Where is the application for Service 01 submitted?",
-              "answers": [
-                {
-                  "text": "Bayan portal",
-                  "answer_start": 146
-                }
-              ],
-              "is_impossible": false
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+"""Lab 3B: run the QA smoke set and report fixture consistency."""
+
+import json
+from pathlib import Path
+
+
+DATA_PATH = Path("data/eval/qa_smoke_set.json")
+
+
+def main():
+    with open(DATA_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    qas = []
+
+    for item in data.get("data", []):
+        for paragraph in item.get("paragraphs", []):
+            context = paragraph.get("context", "")
+
+            for qa in paragraph.get("qas", []):
+                qas.append(
+                    {
+                        "id": qa.get("id"),
+                        "question": qa.get("question"),
+                        "context": context,
+                        "answers": qa.get("answers", []),
+                        "is_impossible": qa.get("is_impossible", False),
+                    }
+                )
+
+    answerable = [
+        qa for qa in qas
+        if not qa["is_impossible"]
+    ]
+
+    unanswerable = [
+        qa for qa in qas
+        if qa["is_impossible"]
+    ]
+
+    print("=== Lab 3B: QA Smoke Set ===")
+    print(f"Total questions: {len(qas)}")
+    print(f"Answerable cases: {len(answerable)}")
+    print(f"Unanswerable cases: {len(unanswerable)}")
+
+    print("\n=== Fixture Check ===")
+
+    if len(answerable) == 9 and len(unanswerable) == 3:
+        print("PASS: fixture contains 9 answerable + 3 unanswerable cases.")
+    else:
+        print(
+            "WARNING: Expected 9 answerable + 3 unanswerable, "
+            f"but supplied fixture contains "
+            f"{len(answerable)} answerable + "
+            f"{len(unanswerable)} unanswerable."
+        )
+
+    print("\n=== Questions ===")
+
+    for qa in qas:
+        expected = None
+
+        if not qa["is_impossible"] and qa["answers"]:
+            expected = qa["answers"][0]["text"]
+
+        print(
+            f"{qa['id']}: "
+            f"impossible={qa['is_impossible']} | "
+            f"expected={expected}"
+        )
+
+
+if __name__ == "__main__":
+    main()
