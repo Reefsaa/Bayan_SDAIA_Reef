@@ -129,3 +129,17 @@ Dialect / region distribution:
 
 Implication:
 Evaluating only on MSA would not represent the full Arabic data distribution, because most Arabic records are Gulf dialect. Evaluation should include the Gulf slice to better reflect real model performance.
+
+## Lab 4 — Clitic Segmentation NER Audit
+
+Arabic clitic segmentation was integrated into the NER training pipeline using CAMeL Tools.
+
+### Results
+- Baseline NER recall: 1.0000
+- Segmented NER recall: 1.0000
+- Recall delta: 0.00 points
+- Segmented test F1: 1.0000
+- Segmented test accuracy: 1.0000
+
+### Observation
+Clitic segmentation did not increase recall because the baseline NER model had already achieved 100% recall on the supplied test set. Therefore, the expected +4 recall-point improvement could not be observed due to a ceiling effect on this dataset.
