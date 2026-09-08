@@ -39,8 +39,8 @@ def load_arabic_data():
         "text",
         "topic",
         "citizen_group_id",
-        "language",
-        "dialect",
+        "lang",
+        "dialect_region",
     }
 
     missing = required - set(df.columns)
@@ -56,13 +56,13 @@ def load_arabic_data():
             "text",
             "topic",
             "citizen_group_id",
-            "language",
-            "dialect",
+            "lang",
+            "dialect_region",
         ]
     ).copy()
 
     df = df[
-        df["language"].astype(str).str.lower().eq("ar")
+        df["lang"].astype(str).str.lower().eq("ar")
     ].copy()
 
     return df
@@ -291,14 +291,14 @@ def train_and_evaluate(
     )
 
     gulf_df = test_df[
-        test_df["dialect"]
+        test_df["dialect_region"]
         .astype(str)
         .str.lower()
         .eq("gulf")
     ].reset_index(drop=True)
 
     msa_df = test_df[
-        test_df["dialect"]
+        test_df["dialect_region"]
         .astype(str)
         .str.lower()
         .eq("msa")
@@ -352,12 +352,19 @@ def print_results(results):
         ]:
             values = result[slice_name]
 
-            print(
-                f"  {slice_name.upper():5s} | "
-                f"N={values['count']:4d} | "
-                f"Macro-F1={values['macro_f1']:.4f} | "
-                f"Accuracy={values['accuracy']:.4f}"
-            )
+            if values["macro_f1"] is None:
+                print(
+                    f"  {slice_name.upper():5s} | "
+                    f"N={values['count']:4d} | "
+                    "No samples"
+                )
+            else:
+                print(
+                    f"  {slice_name.upper():5s} | "
+                    f"N={values['count']:4d} | "
+                    f"Macro-F1={values['macro_f1']:.4f} | "
+                    f"Accuracy={values['accuracy']:.4f}"
+                )
 
 
 def main():
@@ -370,7 +377,7 @@ def main():
     print(f"Arabic records: {len(df)}")
 
     print("\nDialect distribution:")
-    print(df["dialect"].value_counts())
+    print(df["dialect_region"].value_counts())
 
     train_df, val_df, test_df = grouped_split(
         df
