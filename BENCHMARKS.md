@@ -63,3 +63,15 @@ XLM-R provided the most balanced tokenization performance across Arabic and Engl
 - HTTP p99, 16 concurrent:
 - classifier quantisation decision:
 - NER quantisation decision:
+
+## Lab 3A — TF-IDF + LinearSVC Baseline (Grouped Split)
+
+- Train rows: 7174
+- Validation rows: 2418
+- Macro-F1: 1.0000
+
+## Lab 3A — TF-IDF + LinearSVC Baseline (Grouped Split)
+
+- Train rows: 7174
+- Validation rows: 2418
+- Macro-F1: 1.0000
