@@ -62,19 +62,14 @@ def recall_at_k(
 ):
     relevant_ids = set(relevant_ids)
 
-    if not relevant_ids:
-        return 0.0
-
     retrieved_ids = {
         result.get("case_id")
         for result in results[:k]
     }
 
-    hits = len(
-        relevant_ids & retrieved_ids
-    )
-
-    return hits / len(relevant_ids)
+    # Lab 5 query-level Recall@10:
+    # success if at least one relevant case appears in Top-10
+    return 1.0 if (relevant_ids & retrieved_ids) else 0.0
 
 
 def bi_encoder_search(
@@ -98,8 +93,8 @@ def bi_encoder_search(
     # Required L2 normalisation
     faiss.normalize_L2(query_vector)
 
-    # Search entire index so duplicate / near-duplicate
-    # cases are sorted consistently.
+    # Search the full index so duplicate / near-duplicate
+    # cases can be ordered deterministically.
     scores, indices = searcher.index.search(
         query_vector,
         searcher.index.ntotal,
@@ -274,60 +269,49 @@ def evaluate_retrieval(
             )
 
     metrics = {
-        "bi_recall_at_10":
-            float(
-                np.mean(
-                    bi_recalls
-                )
-            ),
+        "bi_recall_at_10": float(
+            np.mean(
+                bi_recalls
+            )
+        ),
 
-        "bi_mrr_at_10":
-            float(
-                np.mean(
-                    bi_mrrs
-                )
-            ),
+        "bi_mrr_at_10": float(
+            np.mean(
+                bi_mrrs
+            )
+        ),
 
-        "rerank_recall_at_10":
-            float(
-                np.mean(
-                    rerank_recalls
-                )
-            ),
+        "rerank_recall_at_10": float(
+            np.mean(
+                rerank_recalls
+            )
+        ),
 
-        "rerank_mrr_at_10":
-            float(
-                np.mean(
-                    rerank_mrrs
-                )
-            ),
+        "rerank_mrr_at_10": float(
+            np.mean(
+                rerank_mrrs
+            )
+        ),
 
-        "bi_latency_ms":
-            float(
-                np.mean(
-                    bi_latency
-                ) * 1000
-            ),
+        "bi_latency_ms": float(
+            np.mean(
+                bi_latency
+            ) * 1000
+        ),
 
-        "rerank_latency_ms":
-            float(
-                np.mean(
-                    rerank_latency
-                ) * 1000
-            ),
+        "rerank_latency_ms": float(
+            np.mean(
+                rerank_latency
+            ) * 1000
+        ),
     }
 
     for lang in [
         "ar",
         "en",
     ]:
-        recall_values = (
-            by_lang[lang]["recall"]
-        )
-
-        mrr_values = (
-            by_lang[lang]["mrr"]
-        )
+        recall_values = by_lang[lang]["recall"]
+        mrr_values = by_lang[lang]["mrr"]
 
         metrics[
             f"{lang}_recall_at_10"
@@ -438,14 +422,11 @@ def tune_no_answer_threshold(
 
         threshold_results.append(
             {
-                "threshold":
-                    threshold,
-                "correct":
-                    correct,
-                "total":
-                    len(
-                        no_answer_queries
-                    ),
+                "threshold": threshold,
+                "correct": correct,
+                "total": len(
+                    no_answer_queries
+                ),
             }
         )
 
