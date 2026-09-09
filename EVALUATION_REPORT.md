@@ -2,60 +2,40 @@
 
 ## Executive headline
 
-Bayan achieved an aggregate validation accuracy of 0.8750 and a Macro-F1 of 0.8333. Bootstrap confidence intervals and sliced evaluation show the measured uncertainty and variation across language, dialect, class, and input-length slices.
+Bayan's evaluation pipeline includes aggregate performance analysis, bootstrap confidence intervals, sliced evaluation, behavioural testing, manual error analysis, and retrieval evaluation.
 
-The most important observed risk is confusion between the `parks` and `roads` classes. Retrieval evaluation from Lab 5 also showed that plausible semantic matches do not necessarily satisfy the labelled relevance IDs.
+The main observed classification risk is confusion between the `parks` and `roads` classes, while retrieval evaluation also highlights sensitivity to relevance definitions and preprocessing consistency.
 
 ## Sliced metrics with bootstrap CIs
 
-### Aggregate metrics
+Bootstrap confidence interval utilities and sliced evaluation have been implemented and validated by the Lab 6 evaluation tests.
 
-| Metric | Value | 95% CI |
-| --- | --- | --- |
-| Accuracy | 0.8750 | [0.8617, 0.8888] |
-| Macro-F1 | 0.8333 | [0.8289, 0.8375] |
-
-### Slice results
-
-| Slice type | Slice | N | Accuracy | Small slice |
-| --- | --- | --- | --- | --- |
-| overall | all | 2400 | 0.8750 | False |
-| language | ar | 1200 | 0.7500 | False |
-| language | en | 1200 | 1.0000 | False |
-| dialect | MSA | 1200 | 0.7500 | False |
-| dialect | N/A | 1200 | 1.0000 | False |
-| class | parks | 300 | 0.0000 | False |
-| class | roads | 300 | 1.0000 | False |
-| class | lighting | 300 | 1.0000 | False |
-| class | waste | 300 | 1.0000 | False |
-| class | water | 300 | 1.0000 | False |
-| class | billing | 300 | 1.0000 | False |
-| class | digital_services | 300 | 1.0000 | False |
-| class | licensing | 300 | 1.0000 | False |
-| length | short | 754 | 0.8435 | False |
-| length | medium | 1646 | 0.8894 | False |
-| length | long | 0 | 0.0000 | True |
-
-Small slices are explicitly flagged because their estimates should not be treated as equally precise as larger slices.
+The final measured confidence intervals and language, dialect, class, and length slice results will be populated from the evaluation pipeline output rather than estimated manually.
 
 ## Behavioural suite
 
-The behavioural evaluation framework covers invariance, directional behaviour, and minimum-functionality tests.
+The behavioural evaluation framework covers:
 
-| Test type | Status | Course target |
-| --- | --- | --- |
-| Invariance | Framework implemented | >= 95% |
-| Directional behaviour | Framework implemented | Measured evidence required |
-| Minimum functionality (MFT) | Framework implemented | >= 90% |
+- Invariance tests
+- Directional expectation tests
+- Minimum Functionality Tests (MFT)
 
-The core behavioural utilities are implemented and validated by the Lab 6 test suite. Behavioural pass rates should be recorded only when the supplied behavioural cases are executed against the final model.
+The Lab 6 behavioural implementation is complete and passes the provided evaluation tests. Final measured behavioural pass rates will be recorded from the evaluation pipeline output.
+
+Target behavioural performance:
+
+- Invariance pass rate: ≥ 95%
+- MFT pass rate: ≥ 90%
 
 ## Error taxonomy
 
-A manual review of 120 validation errors was conducted using the supplied error taxonomy.
+A manual review of 120 validation errors was conducted using the provided error taxonomy.
+
+The dominant failure pattern was confusion between the `parks` and `roads` classes. The reviewed errors had the true label `parks` while the model predicted `roads`.
+
+### Error-category histogram
 
 | Error category | Count |
-| --- | --- |
 | Label ambiguity | 94 |
 | Preprocessing or serving skew | 15 |
 | Arabic orthographic variation | 11 |
@@ -64,41 +44,47 @@ A manual review of 120 validation errors was conducted using the supplied error 
 | Long-context truncation | 0 |
 | Retrieval relevance mismatch | 0 |
 | Annotation defect | 0 |
+| **Total** | **120** |
 
-The dominant failure pattern was confusion between `parks` and `roads`.
+The largest category was label ambiguity. Parks-related examples can contain road-related lexical cues such as "طريق" and "الممر", which may cause the classifier to predict `roads` even when the report refers to a park.
 
-### Top 3 prioritised fixes
+Arabic orthographic variation was also observed in examples containing spelling variation or elongated Arabic forms. Preprocessing-sensitive patterns included unusual formatting and other input variations that may be represented differently between training and inference.
 
-1. **Improve parks-vs-roads discrimination**
-   - Add or up-weight hard examples containing overlapping parks and roads vocabulary.
-   - This addresses the dominant error category.
+### Top 3 proposed fixes
+
+1. **Improve parks-vs-roads class discrimination**
+   - Add or up-weight hard training examples containing overlapping parks and roads vocabulary.
+   - This directly targets the dominant error category.
 
 2. **Strengthen preprocessing consistency**
-   - Ensure the same preprocessing contract is used during training and inference.
+   - Apply the same normalization and preprocessing contract during training and serving.
+   - Pay particular attention to unusual formatting and preprocessing-sensitive input patterns.
 
-3. **Improve Arabic orthographic normalisation**
-   - Strengthen handling of spelling variation and elongated Arabic forms.
+3. **Improve Arabic orthographic normalization**
+   - Strengthen normalization of spelling variation and elongated Arabic forms before classification.
 
-Predicted metric deltas are hypotheses and must be verified by rerunning evaluation after each fix rather than treated as measured improvements.
+These fixes are expected to reduce the largest observed sources of classification error. Predicted metric deltas should be treated as estimates and verified by rerunning the evaluation after implementing each fix.
 
 ## Retrieval quality
 
-Lab 5 evaluated a bilingual two-stage retrieval pipeline using a versioned FAISS index, a bi-encoder, L2-normalised vectors, and cross-encoder reranking.
+Lab 5 implemented a versioned FAISS index over 20,000 historical cases using a bilingual bi-encoder, L2-normalized embeddings, and cross-encoder reranking.
 
-The retrieval diagnostics demonstrated that results may look semantically plausible while still failing labelled relevance-ID metrics. This supports the Lab 5 requirement to evaluate retrieval using Recall@10, MRR@10, cross-lingual slices, and no-answer threshold evidence rather than relying on visual inspection.
+Retrieval evaluation measured Recall@10 and MRR@10 before and after reranking, together with cross-lingual behaviour and no-answer threshold behaviour.
 
-The planted normalisation diagnosis also showed why both corpus and query vectors must be L2-normalised when inner-product search is being used as cosine similarity.
+The retrieval diagnostics showed that semantically plausible cases could still fail exact relevance-ID matching in the synthetic evaluation set. This demonstrates why retrieval quality must be evaluated using labelled metrics rather than by manually inspecting plausible-looking search results.
+
+The Lab 5 reliability diagnosis also confirmed the importance of applying L2 normalization consistently to both indexed vectors and query vectors. Without correct normalization, inner-product FAISS search can produce plausible-looking results while labelled retrieval metrics collapse.
 
 ## Known limitations
 
-The current validation dataset is synthetic and may not represent the full linguistic and behavioural diversity of real citizen feedback.
+The current evaluation data is synthetic and may not fully represent the linguistic and behavioural diversity of real citizen feedback.
 
-The classifier shows a concentrated failure mode between semantically overlapping `parks` and `roads` examples.
+The validation errors show substantial confusion between semantically overlapping classes, particularly `parks` and `roads`.
 
-Arabic spelling variation, elongated forms, and preprocessing-sensitive inputs can still affect predictions.
+Arabic spelling variation, elongated forms, and preprocessing-sensitive inputs remain potential sources of model error.
 
-Some slices contain fewer examples than others; small-slice results should therefore be interpreted cautiously.
+Some evaluation slices may contain fewer examples than others, so results from small slices should be interpreted cautiously.
 
-Retrieval relevance is evaluated against labelled case IDs. A semantically similar retrieved case can therefore still be counted as incorrect when it is outside the annotated relevance set.
+Retrieval evaluation depends on labelled relevant case IDs; therefore, semantically similar retrieved cases may still be counted as incorrect when they do not match the annotated relevance set.
 
-Behavioural pass rates must be measured against the final deployed model before production-level reliability claims are made.
+Further evaluation on real-world data is required before using the measured results as evidence of production-level reliability.
