@@ -1,4 +1,4 @@
-"""Lab 5: fast bi-encoder retrieval diagnostic."""
+"""Lab 5: labelled-query retrieval evaluation."""
 
 import json
 import time
@@ -14,9 +14,6 @@ from bayan.search.service import CaseSearch
 QUERIES_PATH = Path("data/search/bayan_queries.jsonl")
 INDEX_PREFIX = "artifacts/search/case_index_v1"
 
-QUICK_TEST_SIZE = 10
-CANDIDATES = 1000
-
 
 def load_queries():
     queries = []
@@ -31,28 +28,28 @@ def load_queries():
     return queries
 
 
-def reciprocal_rank(results, relevant_ids, k=10):
-    relevant_ids = set(relevant_ids)
+def recall_at_10(results, relevant_ids):
+    relevant = set(relevant_ids)
 
-    for rank, result in enumerate(results[:k], start=1):
-        if result["case_id"] in relevant_ids:
+    retrieved = {
+        result.get("case_id")
+        for result in results[:10]
+    }
+
+    return 1.0 if relevant & retrieved else 0.0
+
+
+def reciprocal_rank(results, relevant_ids):
+    relevant = set(relevant_ids)
+
+    for rank, result in enumerate(results[:10], start=1):
+        if result.get("case_id") in relevant:
             return 1.0 / rank
 
     return 0.0
 
 
-def recall_at_10(results, relevant_ids):
-    relevant_ids = set(relevant_ids)
-
-    retrieved = {
-        result["case_id"]
-        for result in results[:10]
-    }
-
-    return 1.0 if relevant_ids & retrieved else 0.0
-
-
-def bi_encoder_search(searcher, query):
+def bi_encoder_search(searcher, query, k=10):
     query = preprocess(query)
 
     query_vector = searcher.encoder.encode(
@@ -66,120 +63,369 @@ def bi_encoder_search(searcher, query):
         dtype="float32",
     )
 
+    # Required L2 normalization
     faiss.normalize_L2(query_vector)
 
-    # Retrieve more candidates, but NOT all 20,000.
     scores, indices = searcher.index.search(
         query_vector,
-        CANDIDATES,
-    )
-
-    pairs = []
-
-    for score, idx in zip(scores[0], indices[0]):
-        if idx >= 0:
-            pairs.append(
-                (
-                    float(score),
-                    int(idx),
-                )
-            )
-
-    # Stable deterministic ordering for near-duplicate
-    # synthetic cases.
-    pairs.sort(
-        key=lambda x: (
-            -round(x[0], 5),
-            x[1],
-        )
+        k,
     )
 
     results = []
 
-    for score, idx in pairs[:10]:
-        item = dict(searcher.metadata[idx])
+    for score, idx in zip(scores[0], indices[0]):
+        idx = int(idx)
 
-        item["bi_score"] = score
+        if idx < 0:
+            continue
 
-        results.append(item)
+        case = dict(searcher.metadata[idx])
+        case["bi_score"] = float(score)
+
+        results.append(case)
 
     return results
 
 
-def main():
-    print("=== Lab 5 FAST DIAGNOSTIC ===")
-
-    all_queries = load_queries()
-
-    queries = [
+def evaluate_retrieval(searcher, queries):
+    answerable = [
         q
-        for q in all_queries
+        for q in queries
         if not q.get("no_answer", False)
-    ][:QUICK_TEST_SIZE]
+    ]
 
-    print(f"Testing {len(queries)} queries")
+    bi_recalls = []
+    bi_mrrs = []
 
-    searcher = CaseSearch(INDEX_PREFIX)
+    rerank_recalls = []
+    rerank_mrrs = []
 
-    recalls = []
-    mrrs = []
-    latencies = []
+    bi_times = []
+    rerank_times = []
 
-    for q in queries:
+    language = {
+        "ar": {"recall": [], "mrr": []},
+        "en": {"recall": [], "mrr": []},
+    }
+
+    print("\n=== Retrieval Evaluation ===")
+    print(f"Answerable queries: {len(answerable)}")
+
+    for i, q in enumerate(answerable, start=1):
+        query = q["query"]
+        relevant = q["relevant_case_ids"]
+
+        # Bi-encoder
         start = time.perf_counter()
 
-        results = bi_encoder_search(
+        bi_results = bi_encoder_search(
             searcher,
-            q["query"],
+            query,
+            k=10,
         )
 
-        latency = (
+        bi_times.append(
             time.perf_counter() - start
-        ) * 1000
-
-        latencies.append(latency)
-
-        recall = recall_at_10(
-            results,
-            q["relevant_case_ids"],
         )
 
-        rr = reciprocal_rank(
-            results,
-            q["relevant_case_ids"],
+        bi_recall = recall_at_10(
+            bi_results,
+            relevant,
         )
 
-        recalls.append(recall)
-        mrrs.append(rr)
+        bi_mrr = reciprocal_rank(
+            bi_results,
+            relevant,
+        )
 
-        print()
-        print(q["query_id"])
-        print("Query:", q["query"])
-        print("Relevant:", q["relevant_case_ids"])
+        bi_recalls.append(bi_recall)
+        bi_mrrs.append(bi_mrr)
+
+        # Bi-encoder + cross-encoder reranking
+        start = time.perf_counter()
+
+        reranked = searcher.search(
+            query=query,
+            k=10,
+            candidates=50,
+            min_score=-1e9,
+        )
+
+        rerank_times.append(
+            time.perf_counter() - start
+        )
+
+        rerank_recall = recall_at_10(
+            reranked,
+            relevant,
+        )
+
+        rerank_mrr = reciprocal_rank(
+            reranked,
+            relevant,
+        )
+
+        rerank_recalls.append(rerank_recall)
+        rerank_mrrs.append(rerank_mrr)
+
+        lang = q.get("lang")
+
+        if lang in language:
+            language[lang]["recall"].append(
+                rerank_recall
+            )
+            language[lang]["mrr"].append(
+                rerank_mrr
+            )
+
+        if i % 10 == 0:
+            print(
+                f"Processed {i}/{len(answerable)} queries"
+            )
+
+    metrics = {
+        "bi_recall": float(np.mean(bi_recalls)),
+        "bi_mrr": float(np.mean(bi_mrrs)),
+        "rerank_recall": float(np.mean(rerank_recalls)),
+        "rerank_mrr": float(np.mean(rerank_mrrs)),
+        "bi_latency_ms": float(np.mean(bi_times) * 1000),
+        "rerank_latency_ms": float(np.mean(rerank_times) * 1000),
+    }
+
+    for lang in ["ar", "en"]:
+        recalls = language[lang]["recall"]
+        mrrs = language[lang]["mrr"]
+
+        metrics[f"{lang}_recall"] = (
+            float(np.mean(recalls))
+            if recalls
+            else 0.0
+        )
+
+        metrics[f"{lang}_mrr"] = (
+            float(np.mean(mrrs))
+            if mrrs
+            else 0.0
+        )
+
+    metrics["cross_lingual_recall_gap"] = abs(
+        metrics["ar_recall"]
+        - metrics["en_recall"]
+    )
+
+    metrics["cross_lingual_mrr_gap"] = abs(
+        metrics["ar_mrr"]
+        - metrics["en_mrr"]
+    )
+
+    return metrics
+
+
+def evaluate_no_answer(searcher, queries):
+    no_answer = [
+        q
+        for q in queries
+        if q.get("no_answer", False)
+    ]
+
+    print("\n=== No-answer Evaluation ===")
+    print(f"No-answer queries: {len(no_answer)}")
+
+    top_scores = []
+
+    # Run the reranker once per no-answer query
+    for i, q in enumerate(no_answer, start=1):
+        results = searcher.search(
+            query=q["query"],
+            k=1,
+            candidates=50,
+            min_score=-1e9,
+        )
+
+        if results:
+            top_scores.append(
+                float(results[0]["score"])
+            )
+        else:
+            top_scores.append(
+                float("-inf")
+            )
+
         print(
-            "Top10:",
-            [r["case_id"] for r in results],
-        )
-        print(
-            f"HIT={bool(recall)} "
-            f"RR={rr:.3f}"
+            f"Processed no-answer {i}/{len(no_answer)}"
         )
 
-    print("\n=== FAST RESULTS ===")
+    thresholds = [
+        -5.0,
+        -4.0,
+        -3.0,
+        -2.0,
+        -1.0,
+        0.0,
+        0.5,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+    ]
+
+    threshold_results = []
+
+    print("\nNo-answer threshold behaviour:")
+
+    for threshold in thresholds:
+        correct = sum(
+            score < threshold
+            for score in top_scores
+        )
+
+        threshold_results.append(
+            {
+                "threshold": threshold,
+                "correct": correct,
+            }
+        )
+
+        print(
+            f"threshold={threshold:>4} "
+            f"correct={correct}/{len(no_answer)}"
+        )
+
+    passing = [
+        item
+        for item in threshold_results
+        if item["correct"] >= 17
+    ]
+
+    if passing:
+        selected = min(
+            passing,
+            key=lambda x: x["threshold"],
+        )
+    else:
+        selected = max(
+            threshold_results,
+            key=lambda x: x["correct"],
+        )
+
+    return {
+        "threshold": selected["threshold"],
+        "correct": selected["correct"],
+        "total": len(no_answer),
+    }
+
+
+def main():
+    print("=== Lab 5 Retrieval Evaluation ===")
+
+    queries = load_queries()
 
     print(
-        "Recall@10:",
-        f"{np.mean(recalls):.4f}",
+        f"Loaded queries: {len(queries)}"
+    )
+
+    searcher = CaseSearch(
+        INDEX_PREFIX
+    )
+
+    metrics = evaluate_retrieval(
+        searcher,
+        queries,
+    )
+
+    no_answer = evaluate_no_answer(
+        searcher,
+        queries,
+    )
+
+    print("\n=== Final Metrics ===")
+
+    print(
+        "Recall@10 without reranking:",
+        f"{metrics['bi_recall']:.4f}",
     )
 
     print(
-        "MRR@10:",
-        f"{np.mean(mrrs):.4f}",
+        "MRR@10 without reranking:",
+        f"{metrics['bi_mrr']:.4f}",
     )
 
     print(
-        "Average latency:",
-        f"{np.mean(latencies):.2f} ms/query",
+        "Recall@10 with reranking:",
+        f"{metrics['rerank_recall']:.4f}",
+    )
+
+    print(
+        "MRR@10 with reranking:",
+        f"{metrics['rerank_mrr']:.4f}",
+    )
+
+    print(
+        "Arabic Recall@10:",
+        f"{metrics['ar_recall']:.4f}",
+    )
+
+    print(
+        "English Recall@10:",
+        f"{metrics['en_recall']:.4f}",
+    )
+
+    print(
+        "Cross-lingual Recall gap:",
+        f"{metrics['cross_lingual_recall_gap']:.4f}",
+    )
+
+    print(
+        "Arabic MRR@10:",
+        f"{metrics['ar_mrr']:.4f}",
+    )
+
+    print(
+        "English MRR@10:",
+        f"{metrics['en_mrr']:.4f}",
+    )
+
+    print(
+        "Cross-lingual MRR gap:",
+        f"{metrics['cross_lingual_mrr_gap']:.4f}",
+    )
+
+    print(
+        "Average bi-encoder latency:",
+        f"{metrics['bi_latency_ms']:.2f} ms/query",
+    )
+
+    print(
+        "Average reranked latency:",
+        f"{metrics['rerank_latency_ms']:.2f} ms/query",
+    )
+
+    print(
+        "Selected no-answer threshold:",
+        no_answer["threshold"],
+    )
+
+    print(
+        "No-answer correctness:",
+        f"{no_answer['correct']}/{no_answer['total']}",
+    )
+
+    print("\n=== Lab 5 Targets ===")
+
+    print(
+        "Recall@10 >= 0.80:",
+        metrics["rerank_recall"] >= 0.80,
+    )
+
+    print(
+        "MRR@10 >= 0.70:",
+        metrics["rerank_mrr"] >= 0.70,
+    )
+
+    print(
+        "No-answer >= 17/20:",
+        no_answer["correct"] >= 17,
     )
 
 
