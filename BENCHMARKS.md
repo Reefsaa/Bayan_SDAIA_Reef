@@ -90,54 +90,59 @@ Result: PASS
 
 ### Observation
 Both CAMeLBERT-mix and CAMeLBERT-DA achieved identical performance on the supplied Bayan dataset. No Gulf-slice improvement was observed for CAMeLBERT-DA because CAMeLBERT-mix had already reached 100% macro-F1, producing a ceiling effect.
+### Lab 5 — Bilingual Semantic Search
 
-## Lab 5 — Bilingual Semantic Search
+A FAISS semantic-search index was built over 20,000 historical cases using
+L2-normalised sentence embeddings and inner-product search.
 
-### Retrieval Results
+#### Retrieval Results
 
-| Stage | Recall@10 | MRR@10 |
-| Bi-encoder only | 0.0692 | 0.0320 |
-| + Cross-encoder rerank | 0.0462 | 0.0162 |
+| Metric | Result |
+|---|---:|
+| Recall@10 before reranking | 0.0308 |
+| MRR@10 before reranking | 0.0104 |
+| Recall@10 after reranking | 0.0231 |
+| MRR@10 after reranking | 0.0073 |
+| Arabic Recall@10 | 0.0167 |
+| English Recall@10 | 0.0286 |
+| Cross-lingual Recall gap | 0.0119 |
+| Arabic MRR@10 | 0.0042 |
+| English MRR@10 | 0.0100 |
+| Cross-lingual MRR gap | 0.0058 |
+| Bi-encoder latency | 68.51 ms/query |
+| Reranked latency | 2621.91 ms/query |
+| No-answer correctness | 20/20 |
+| Selected no-answer threshold | -5.0 |
 
-### Cross-lingual Results
-- Arabic Recall@10: 0.0667
-- English Recall@10: 0.0286
-- Recall gap: 0.0381
-- Arabic MRR@10: 0.0297
-- English MRR@10: 0.0046
-- MRR gap: 0.0251
+#### Target Check
 
-### No-answer Behaviour
-- Selected threshold: -2.0
-- Correct no-answer predictions: 20/20
-- Target: >= 17/20
-- Result: PASS
+- Recall@10 >= 0.80: Not achieved
+- MRR@10 >= 0.70: Not achieved
+- No-answer >= 17/20: Achieved
 
-### Latency
-- Bi-encoder: 69.01 ms/query
-- Bi-encoder + reranker: 119.01 ms/query
+#### Diagnosis
 
-### Retrieval Target Analysis
-The supplied synthetic corpus contains many duplicate and near-duplicate
-cases. Semantic retrieval often returns cases that are highly relevant in
-meaning but do not match the exact case IDs listed in the evaluation gold
-labels.
+The FAISS index and query vectors were both L2-normalised before
+inner-product search. This is required so that inner-product ranking
+behaves consistently with cosine similarity.
 
-For example, for Q-001 the three labelled relevant cases appeared at
-approximately ranks 5281, 3825, and 1958 in the semantic ranking, while
-several highly similar road/pothole cases ranked at the top.
+Without correct L2 normalisation, vector magnitude can dominate the
+similarity score and produce plausible-looking results while labelled
+Recall@10 and MRR@10 collapse.
 
-L2 normalization was verified for both corpus and query embeddings, so the
-low retrieval metrics were not caused by the planted unnormalized-vector
-bug.
+After correcting and verifying normalisation, the retrieval pipeline
+executed successfully, but the labelled retrieval targets were still
+not achieved. The corpus contains many highly similar synthetic cases,
+while evaluation depends on specific labelled case IDs. The dense
+retriever often returned semantically similar cases that were not among
+the labelled relevant IDs.
 
-A multilingual E5 retrieval model was also tested as a diagnostic. On the
-first 10 labelled queries it achieved Recall@10 = 0.10 and MRR@10 = 0.0111,
-so it did not resolve the exact-ID evaluation mismatch.
+Cross-encoder reranking did not improve retrieval because relevant
+cases that were absent from the candidate set could not be recovered
+during reranking.
 
-Therefore the measured Recall@10 and MRR@10 targets were not reached on the
-supplied exact-ID benchmark, while the persisted-index contract and
-no-answer target were satisfied.
+No-answer behaviour met the target with 20/20 correct cases.
+
 
 ## Lab 6 — Evaluation
 | Model | Aggregate macro-F1 [CI] | Gulf [CI] | Invariance pass | MFT pass |
