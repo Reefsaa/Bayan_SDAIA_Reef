@@ -120,7 +120,6 @@ Model family for the causal mask: Decoder-style causal attention.
 
 ## Lab 4 — Dialect audit
 
-
 Arabic records: 7200
 
 Dialect / region distribution:
