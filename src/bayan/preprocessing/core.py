@@ -1,4 +1,4 @@
-"""Lab 1 starter: versioned bilingual preprocessing for Bayan."""
+"""Bayan text preprocessing utilities."""
 
 import re
 import unicodedata
@@ -7,35 +7,41 @@ PREPROC_VERSION = "1.2.0"
 
 
 def normalize(text: str) -> str:
-    """Return deterministic Bayan normalisation while preserving task signal."""
+    """Normalize Arabic/English feedback while preserving useful signals."""
+    if not isinstance(text, str):
+        return text
 
-    # Normalize Unicode representation
-    text = unicodedata.normalize("NFKC", text)
+    # Unicode NFC normalization
+    text = unicodedata.normalize("NFC", text)
 
     # Remove Arabic tatweel
     text = text.replace("ـ", "")
 
-    # Reduce repeated characters to a maximum of two
+    # Replace HTML line breaks with spaces
+    text = re.sub(r"<br\s*/?>", " ", text, flags=re.IGNORECASE)
+
+    # Reduce any character repeated 3+ times to 2 occurrences
     text = re.sub(r"(.)\1{2,}", r"\1\1", text)
 
-    # Clean repeated whitespace, newlines, and tabs
+    # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
 
 
 def mask_pii(text: str) -> str:
-    """Mask supported phone numbers and Saudi national-ID-shaped values."""
+    """Mask supported Saudi phone numbers and national-ID-shaped values."""
+    if not isinstance(text, str):
+        return text
 
-    # Saudi phone numbers:
-    # 0551234567
-    # +966551234567
-    # 966551234567
-    phone_pattern = r"(?<!\d)(?:\+966|966|0)5\d{8}(?!\d)"
+    # Saudi mobile numbers:
+    # 05xxxxxxxx
+    # +9665xxxxxxxx
+    # 9665xxxxxxxx
+    phone_pattern = r"(?<!\d)(?:\+?966|0)5\d{8}(?!\d)"
     text = re.sub(phone_pattern, "<PHONE>", text)
 
-    # Saudi National ID / Iqama-shaped numbers
-    # Must be 10 digits and start with 1 or 2
+    # Saudi national-ID-shaped values starting with 1 or 2
     national_id_pattern = r"(?<!\d)[12]\d{9}(?!\d)"
     text = re.sub(national_id_pattern, "<NATIONAL_ID>", text)
 
@@ -43,9 +49,7 @@ def mask_pii(text: str) -> str:
 
 
 def preprocess(text: str) -> str:
-    """Apply the shared train/eval/serve preprocessing contract."""
-
-    text = mask_pii(text)
+    """Apply the shared Bayan preprocessing pipeline."""
     text = normalize(text)
-
+    text = mask_pii(text)
     return text

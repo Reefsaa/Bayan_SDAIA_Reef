@@ -1,72 +1,144 @@
 # Lab Notes
 
 ## Lab 1 — Defect Safari
+Inspect `data/raw/bayan_raw_sample.csv` and document at least six defect classes.
+For each one record: example, why it matters, and clean/preserve/task-dependent.
+# Lab Notes
 
-Inspect `data/raw/bayan_raw_sample.csv` and document at least six defect classes. For each one record: example, why it matters, and clean/preserve/task-dependent.
+## Lab 1 — Defect Safari
 
 ### Defect 1
-
-* Class: Unicode forms
-* Example: Arabic characters may appear in different Unicode forms.
-* Why it matters: Different forms of the same character can be treated as different tokens.
-* Decision: Clean
+- Class: Leading and Trailing Whitespace
+- Example: ` ألعاب الأطفال في حديقة حي العليا تحتاج صيانة `
+- Why it matters: Extra spaces make equivalent feedback inconsistent and may affect downstream text processing and tokenisation.
+- Decision: Clean — remove leading and trailing whitespace.
 
 ### Defect 2
-
-* Class: Tatweel
-* Example: الخدمــــة
-* Why it matters: Tatweel adds unnecessary characters and can affect tokenization.
-* Decision: Clean
+- Class: Irregular / Multiple Whitespace
+- Example: `😡  0551234567  1023456789`
+- Why it matters: Multiple spaces, tabs, and line breaks may cause equivalent text to be processed differently.
+- Decision: Clean — collapse consecutive whitespace into a single space.
 
 ### Defect 3
-
-* Class: Code-switching Arabic ↔ English
-* Example: الخدمة was very slow
-* Why it matters: Bayan is bilingual, so both Arabic and English information can be useful.
-* Decision: Preserve
+- Class: Tatweel and Repeated-Character Elongation
+- Example: `الخدمــــة`, `هلووو`, `ممتااااز`, and `pleaseeee`
+- Why it matters: Decorative and repeated characters increase vocabulary sparsity and can create unnecessary subword tokens.
+- Decision: Clean conservatively — remove Arabic tatweel and reduce character runs of 3 or more to two characters while preserving emphasis.
 
 ### Defect 4
-
-* Class: PII
-* Example: 0551234567 or 1023456789
-* Why it matters: Personal information should not be passed directly to the model.
-* Decision: Clean
+- Class: HTML Line-Break Remnants
+- Example: `<br>` and `<br/>`
+- Why it matters: HTML line-break tags are source-formatting noise and are not part of the actual feedback content.
+- Decision: Clean — replace HTML line-break tags with whitespace and normalise the resulting spacing.
 
 ### Defect 5
-
-* Class: Emoji
-* Example: 😡 or ✅
-* Why it matters: Emoji can carry useful sentiment information.
-* Decision: Preserve
+- Class: Phone Numbers (PII)
+- Example: `0551234567`, `+966551234567`, and `966551234567`
+- Why it matters: Phone numbers contain personally identifiable information and should not remain in processed feedback.
+- Decision: Clean — replace supported Saudi mobile-number formats with `<PHONE>`.
 
 ### Defect 6
+- Class: National-ID-Shaped Values (PII)
+- Example: `1023456789` and `2123456789`
+- Why it matters: National-ID-shaped values contain sensitive personal information and must not remain in the processed text.
+- Decision: Clean — replace supported Saudi national-ID-shaped values with `<NATIONAL_ID>`.
 
-* Class: HTML remnants
-* Example: <br>
-* Why it matters: HTML tags are formatting noise and may affect tokenization.
-* Decision: Clean
+### Additional Preserved Signal
+- Class: Emoji and bilingual text
+- Example: `الخدمة 😡` and `Service ✅ ممتاز`
+- Why it matters: Emoji can carry sentiment information, while Arabic-English code-switching is part of the bilingual Bayan feedback.
+- Decision: Preserve — do not remove emoji or translate/lowercase bilingual content.
 
-## Lab 1 — Sentence Segmentation Spot-Check 
-### Sentence Segmentation Spot-Check
+### Preprocessing Verification
+- Golden preprocessing contract: 25/25 cases passed.
+- PII fixture: all 60 provided cases were checked successfully.
+- PII recall: 100%.
+- Shared preprocessing order: normalisation followed by PII masking.
+- Preprocessing version: `1.2.0`.
 
-* Checked 5 long examples from the dataset.
-* Long complaints without clear sentence punctuation remained as one sentence, which was reasonable.
-* Emoji and bilingual content were preserved after preprocessing.
-* The numbered-list example was initially split incorrectly, with list numbers treated as separate sentences.
-* The segmentation logic was updated to merge numbered-list markers with the following sentence.
-* After the fix, the numbered-list complaint was segmented correctly:
+### Sentence-Segmentation Spot Check
+- Arabic multi-sentence example: produced sensible Arabic sentence boundaries.
+- English example: `I contacted support. They asked me to wait. The issue is still unresolved.` was correctly split into 3 sentences.
+- Abbreviation example: `Dr. Ahmed reviewed the request. The application is still pending.` preserved `Dr. Ahmed` together and produced 2 sentences.
+- Numbered-list example: the Arabic numbered complaint was segmented into separate list items.
+- Time-abbreviation example: `The service failed at 5 p.m. I restarted the app. It still does not work.` preserved `p.m.` correctly and produced 3 sentences.
 
-  * `1. The streetlight is broken.`
-  * `2. The road has a pothole.`
-  * `3. The waste bin is full.`
+### Tokenizer Audit
+Four tokenizer candidates were evaluated on Bayan Arabic and English feedback:
+- mBERT
+- XLM-R
+- CAMeLBERT
+- DistilBERT
 
+Measured results:
 
-## Lab 2 — Parameter audit
-| Checkpoint | Total params | Embeddings % | Other notes |
-|---|---:|---:|---|
-| mBERT | | | |
-| CAMeLBERT | | | |
+| Tokenizer | AR Fertility | EN Fertility | AR p95 Length | EN p95 Length |
+|---|---:|---:|---:|---:|
+| mBERT | 2.183 | 1.510 | 27.0 | 25.0 |
+| XLM-R | 1.672 | 1.434 | 21.0 | 23.0 |
+| CAMeLBERT | 1.405 | 3.705 | 20.0 | 38.0 |
+| DistilBERT | 4.527 | 1.298 | 47.0 | 21.0 |
+
+### Tokenizer Audit Findings
+XLM-R provides the most balanced tokenisation across both Arabic and English. CAMeLBERT performs best on Arabic with the lowest Arabic fertility (1.405) and Arabic p95 length (20.0), but performs poorly on English with fertility 3.705 and p95 length 38.0. DistilBERT performs well on English but poorly on Arabic. Since Bayan contains bilingual Arabic and English feedback, XLM-R offers the strongest overall balance for the shared bilingual pipeline.
+## Lab 2 — Parameter Audit
+
+Parameter comparison between `bert-base-multilingual-cased` (mBERT) and `CAMeL-Lab/bert-base-arabic-camelbert-mix` (CAMeLBERT):
+
+| Parameter Bucket | mBERT | CAMeLBERT |
+| Embeddings| 92,208,384 | 23,436,288 |
+| Attention | 28,366,848 | 28,366,848 |
+| FFN       | 56,669,184 | 56,669,184 |
+| Norms     | 18,432     | 18,432 |
+| Pooler    | 590,592    | 590,592 |
+| Other     | 0          | 0 |
+| Total     | 177,853,440 | 109,081,344 |
+The attention, FFN, norms, and pooler parameter counts are the same in both models, while mBERT has substantially more embedding parameters.
+
+**Why is the embedding share different?**  
+mBERT has a larger embedding share because its multilingual vocabulary must represent many languages, creating a multilingual vocabulary tax compared with the more Arabic-focused CAMeLBERT.
+
+### Causal Mask Verification
+- A lower-triangular causal mask was applied so token position `i` can attend only to positions `<= i`.
+- The resulting attention matrix was lower triangular.
+- Future attention mass was `0.0`.
+- Causal mask validation result: `True`.
+- This corresponds to decoder-style causal attention.
+
+##  — Attention Diagnostics Findings
+
+The attention diagnostics showed that the causal mask is valid and prevents tokens from attending to future positions.
+
+Without a correct padding mask, the model assigned attention mass to PAD tokens (73.5651). With the correct attention mask, PAD attention mass was reduced to 0.0, confirming that padding leakage was successfully eliminated.
+
+[SEP] sink behaviour was observed, with mean attention to [SEP] of 0.0974 for Example 1 and 0.1505 for Example 2.
+
+Head 7 showed the strongest adjacency-looking behaviour with an adjacency score of 0.3636.
+
+Model family for the causal mask: Decoder-style causal attention.
+
 
 ## Lab 4 — Dialect audit
-- Distribution:
-- One-sentence implication for MSA-only evaluation:
+
+Arabic records: 7200
+
+Dialect / region distribution:
+- Gulf: 4800 (66.67%)
+- MSA: 2400 (33.33%)
+
+Implication:
+Evaluating only on MSA would not represent the full Arabic data distribution, because most Arabic records are Gulf dialect. Evaluation should include the Gulf slice to better reflect real model performance.
+
+## Lab 4 — Clitic Segmentation NER Audit
+
+Arabic clitic segmentation was integrated into the NER training pipeline using CAMeL Tools.
+
+### Results
+- Baseline NER recall: 1.0000
+- Segmented NER recall: 1.0000
+- Recall delta: 0.00 points
+- Segmented test F1: 1.0000
+- Segmented test accuracy: 1.0000
+
+### Observation
+Clitic segmentation did not increase recall because the baseline NER model had already achieved 100% recall on the supplied test set. Therefore, the expected +4 recall-point improvement could not be observed due to a ceiling effect on this dataset.

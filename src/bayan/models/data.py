@@ -1,4 +1,4 @@
-"""Lab 3A: dataset construction and grouped split integrity."""
+"""Lab 3 starter: dataset construction and split integrity."""
 
 from pathlib import Path
 
@@ -9,70 +9,46 @@ from sklearn.model_selection import GroupShuffleSplit
 DATA_PATH = Path("data/raw/bayan_feedback.csv")
 
 
-def build_topic_dataset(
-    data_path=DATA_PATH,
-    test_size=0.20,
-    validation_size=0.20,
-    random_state=42,
-):
-    """Build grouped train/validation/test splits for topic classification."""
+def build_topic_dataset(*args, **kwargs):
+    df = pd.read_csv(DATA_PATH)
 
-    df = pd.read_csv(data_path)
+    # Keep only rows needed for topic classification
+    df = df.dropna(subset=["text", "topic", "citizen_group_id"]).copy()
 
-    required_columns = {
-        "citizen_group_id",
-        "topic",
-        "text",
-    }
+    groups = df["citizen_group_id"]
 
-    missing = required_columns - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing required columns: {sorted(missing)}")
-
-    df = df.dropna(
-        subset=["citizen_group_id", "topic", "text"]
-    ).copy()
-
-    # Split off the test set by citizen group.
-    splitter = GroupShuffleSplit(
+    # First split: train 70%, temp 30%
+    splitter1 = GroupShuffleSplit(
         n_splits=1,
-        test_size=test_size,
-        random_state=random_state,
+        test_size=0.30,
+        random_state=42,
     )
 
-    train_valid_idx, test_idx = next(
-        splitter.split(
-            df,
-            y=df["topic"],
-            groups=df["citizen_group_id"],
-        )
+    train_idx, temp_idx = next(
+        splitter1.split(df, groups=groups)
     )
 
-    train_valid = df.iloc[train_valid_idx].reset_index(drop=True)
-    test = df.iloc[test_idx].reset_index(drop=True)
+    train_df = df.iloc[train_idx].reset_index(drop=True)
+    temp_df = df.iloc[temp_idx].reset_index(drop=True)
 
-    # Split the remaining data into train and validation.
-    valid_relative_size = validation_size / (1 - test_size)
+    # Second split: validation 15%, test 15%
+    temp_groups = temp_df["citizen_group_id"]
 
-    splitter = GroupShuffleSplit(
+    splitter2 = GroupShuffleSplit(
         n_splits=1,
-        test_size=valid_relative_size,
-        random_state=random_state,
+        test_size=0.50,
+        random_state=42,
     )
 
-    train_idx, valid_idx = next(
-        splitter.split(
-            train_valid,
-            y=train_valid["topic"],
-            groups=train_valid["citizen_group_id"],
-        )
+    val_idx, test_idx = next(
+        splitter2.split(temp_df, groups=temp_groups)
     )
 
-    train = train_valid.iloc[train_idx].reset_index(drop=True)
-    validation = train_valid.iloc[valid_idx].reset_index(drop=True)
+    validation_df = temp_df.iloc[val_idx].reset_index(drop=True)
+    test_df = temp_df.iloc[test_idx].reset_index(drop=True)
 
     return {
-        "train": train,
-        "validation": validation,
-        "test": test,
+        "train": train_df,
+        "validation": validation_df,
+        "test": test_df,
     }
