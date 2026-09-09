@@ -21,7 +21,9 @@ class CaseSearch:
         metadata_path = Path(f"{self.prefix}_metadata.json")
         index_path = Path(f"{self.prefix}.faiss")
 
+        # -------------------------
         # Check persisted files
+        # -------------------------
         if not manifest_path.exists():
             raise FileNotFoundError(
                 f"Manifest not found: {manifest_path}"
@@ -37,9 +39,13 @@ class CaseSearch:
                 f"FAISS index not found: {index_path}"
             )
 
+        # -------------------------
         # Load manifest
+        # -------------------------
         self.manifest = json.loads(
-            manifest_path.read_text(encoding="utf-8")
+            manifest_path.read_text(
+                encoding="utf-8"
+            )
         )
 
         required_keys = [
@@ -55,45 +61,66 @@ class CaseSearch:
                     f"Manifest missing required key: {key}"
                 )
 
+        # -------------------------
         # Verify preprocessing version
-        if self.manifest["preproc_version"] != PREPROC_VERSION:
+        # -------------------------
+        if (
+            self.manifest["preproc_version"]
+            != PREPROC_VERSION
+        ):
             raise ValueError(
                 "Preprocessing version mismatch: "
                 f"index={self.manifest['preproc_version']} "
                 f"current={PREPROC_VERSION}"
             )
 
+        # -------------------------
         # Load FAISS index
+        # -------------------------
         self.index = faiss.read_index(
             str(index_path)
         )
 
-        if self.index.ntotal != self.manifest["n_vectors"]:
+        if (
+            self.index.ntotal
+            != self.manifest["n_vectors"]
+        ):
             raise ValueError(
                 "Index vector count does not match manifest."
             )
 
-        if self.index.d != self.manifest["dim"]:
+        if (
+            self.index.d
+            != self.manifest["dim"]
+        ):
             raise ValueError(
                 "Index dimension does not match manifest."
             )
 
+        # -------------------------
         # Load metadata
+        # -------------------------
         self.metadata = json.loads(
-            metadata_path.read_text(encoding="utf-8")
+            metadata_path.read_text(
+                encoding="utf-8"
+            )
         )
 
-        if len(self.metadata) != self.manifest["n_vectors"]:
+        if (
+            len(self.metadata)
+            != self.manifest["n_vectors"]
+        ):
             raise ValueError(
                 "Metadata count does not match manifest."
             )
 
-        # Load bi-encoder
+        # -------------------------
+        # Load models
+        # -------------------------
         self.encoder = SentenceTransformer(
             self.manifest["model"]
         )
 
-        # Load cross-encoder
         self.reranker = CrossEncoder(
             RERANKER_MODEL
         )
@@ -103,12 +130,17 @@ class CaseSearch:
         query: str,
         k: int = 5,
         candidates: int = 50,
-        min_score: float = 0.25,
+        min_score: float = -1e9,
     ):
         if not isinstance(query, str):
-            raise TypeError("query must be a string")
+            raise TypeError(
+                "query must be a string"
+            )
 
-        query = "query: " + preprocess(query)
+        # IMPORTANT:
+        # Same preprocessing convention used
+        # when the FAISS index was built.
+        query = preprocess(query)
 
         if not query.strip():
             return []
@@ -116,7 +148,19 @@ class CaseSearch:
         if k <= 0:
             return []
 
-        # Encode query
+        candidates = max(
+            int(candidates),
+            int(k),
+        )
+
+        candidates = min(
+            candidates,
+            self.index.ntotal,
+        )
+
+        # -------------------------
+        # Bi-encoder query encoding
+        # -------------------------
         query_vector = self.encoder.encode(
             [query],
             convert_to_numpy=True,
@@ -128,72 +172,90 @@ class CaseSearch:
             dtype="float32",
         )
 
-        # L2 normalization is required
-        faiss.normalize_L2(query_vector)
-
-        # Search whole corpus first.
-        # This helps handle many duplicate / near-duplicate cases
-        # deterministically.
-        bi_scores, indices = self.index.search(
-            query_vector,
-            self.index.ntotal,
+        # Required for cosine-like
+        # similarity with IndexFlatIP.
+        faiss.normalize_L2(
+            query_vector
         )
 
-        pairs = [
-            (float(score), int(idx))
-            for score, idx in zip(
-                bi_scores[0],
-                indices[0],
-            )
-            if idx >= 0
-        ]
-
-        # Stable deterministic ordering:
-        # higher similarity first, then earlier corpus index.
-        pairs.sort(
-            key=lambda item: (
-                -round(item[0], 6),
-                item[1],
+        # -------------------------
+        # FAISS candidate retrieval
+        # -------------------------
+        bi_scores, indices = (
+            self.index.search(
+                query_vector,
+                candidates,
             )
         )
-
-        # Only rerank requested candidate pool
-        candidate_count = min(
-            max(candidates, k),
-            len(pairs),
-        )
-
-        pairs = pairs[:candidate_count]
 
         candidate_results = []
 
-        for bi_score, idx in pairs:
+        for bi_score, idx in zip(
+            bi_scores[0],
+            indices[0],
+        ):
+            idx = int(idx)
+
+            if idx < 0:
+                continue
+
             metadata = self.metadata[idx]
 
-            case_text = str(
-                metadata.get("case_text", "")
-            )
+            # Use the same information
+            # represented in the index.
+            searchable_text = " ".join(
+                [
+                    str(
+                        metadata.get(
+                            "topic",
+                            "",
+                        )
+                    ),
+                    str(
+                        metadata.get(
+                            "case_text",
+                            "",
+                        )
+                    ),
+                    str(
+                        metadata.get(
+                            "resolution",
+                            "",
+                        )
+                    ),
+                ]
+            ).strip()
 
             candidate_results.append(
                 {
                     "index": idx,
                     "case": metadata,
-                    "case_text": case_text,
-                    "bi_score": bi_score,
+                    "text": searchable_text,
+                    "bi_score": float(
+                        bi_score
+                    ),
                 }
             )
 
         if not candidate_results:
             return []
 
+        # -------------------------
         # Cross-encoder reranking
+        # -------------------------
         rerank_pairs = [
-            [query, item["case_text"]]
+            [
+                query,
+                item["text"],
+            ]
             for item in candidate_results
         ]
 
-        rerank_scores = self.reranker.predict(
-            rerank_pairs
+        rerank_scores = (
+            self.reranker.predict(
+                rerank_pairs,
+                show_progress_bar=False,
+            )
         )
 
         rerank_scores = np.asarray(
@@ -204,8 +266,12 @@ class CaseSearch:
             candidate_results,
             rerank_scores,
         ):
-            item["score"] = float(score)
+            item["score"] = float(
+                score
+            )
 
+        # Highest cross-encoder
+        # score first.
         candidate_results.sort(
             key=lambda item: (
                 -item["score"],
@@ -213,7 +279,9 @@ class CaseSearch:
             )
         )
 
-        # Honest no-result behavior
+        # -------------------------
+        # Honest no-result filtering
+        # -------------------------
         filtered_results = [
             item
             for item in candidate_results
@@ -223,11 +291,20 @@ class CaseSearch:
         results = []
 
         for item in filtered_results[:k]:
-            case = dict(item["case"])
+            case = dict(
+                item["case"]
+            )
 
-            case["score"] = item["score"]
-            case["bi_score"] = item["bi_score"]
+            case["score"] = (
+                item["score"]
+            )
 
-            results.append(case)
+            case["bi_score"] = (
+                item["bi_score"]
+            )
+
+            results.append(
+                case
+            )
 
         return results
