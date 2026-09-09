@@ -21,7 +21,6 @@ from transformers import (
 )
 
 from bayan.models.ner import align_labels
-from bayan.preprocessing.arabic import segment
 
 
 CHECKPOINT = "xlm-roberta-base"
@@ -81,6 +80,15 @@ def read_conll(path):
 
 
 def apply_segmentation(sentences, labels):
+    """
+    Apply Arabic clitic segmentation only when explicitly requested.
+
+    Importing segment here avoids requiring camel_tools when
+    segmentation is not being used.
+    """
+
+    from bayan.preprocessing.arabic import segment
+
     segmented_sentences = []
     segmented_labels = []
 
@@ -100,9 +108,6 @@ def apply_segmentation(sentences, labels):
                 if piece_index == 0:
                     new_labels.append(label)
                 else:
-                    # Keep the same entity label on additional clitic pieces.
-                    # This avoids introducing new label classes that do not
-                    # exist in the supplied CoNLL fixture.
                     new_labels.append(label)
 
         segmented_sentences.append(new_tokens)
@@ -150,6 +155,7 @@ def main():
     # 2. Optional Lab 4 Arabic clitic segmentation
     if args.use_segmentation:
         print("Applying Arabic clitic segmentation...")
+
         sentences, ner_labels = apply_segmentation(
             sentences,
             ner_labels,
@@ -157,7 +163,11 @@ def main():
 
     # 3. Build label mappings
     unique_labels = sorted(
-        {label for sequence in ner_labels for label in sequence}
+        {
+            label
+            for sequence in ner_labels
+            for label in sequence
+        }
     )
 
     label2id = {
@@ -171,7 +181,10 @@ def main():
     }
 
     numeric_labels = [
-        [label2id[label] for label in sequence]
+        [
+            label2id[label]
+            for label in sequence
+        ]
         for sequence in ner_labels
     ]
 
@@ -180,7 +193,10 @@ def main():
         (train_tokens, train_labels),
         (val_tokens, val_labels),
         (test_tokens, test_labels),
-    ) = split_data(sentences, numeric_labels)
+    ) = split_data(
+        sentences,
+        numeric_labels,
+    )
 
     train_ds = Dataset.from_dict({
         "tokens": train_tokens,
@@ -214,8 +230,12 @@ def main():
 
         aligned_batch = []
 
-        for i, word_labels in enumerate(batch["ner_tags"]):
-            word_ids = tokenized.word_ids(batch_index=i)
+        for i, word_labels in enumerate(
+            batch["ner_tags"]
+        ):
+            word_ids = tokenized.word_ids(
+                batch_index=i
+            )
 
             aligned = align_labels(
                 word_ids,
@@ -267,11 +287,17 @@ def main():
         true_predictions = []
         true_labels = []
 
-        for prediction, label in zip(predictions, labels):
+        for prediction, label in zip(
+            predictions,
+            labels,
+        ):
             pred_sequence = []
             label_sequence = []
 
-            for pred_id, label_id in zip(prediction, label):
+            for pred_id, label_id in zip(
+                prediction,
+                label,
+            ):
                 if label_id == -100:
                     continue
 
@@ -283,8 +309,13 @@ def main():
                     id2label[int(label_id)]
                 )
 
-            true_predictions.append(pred_sequence)
-            true_labels.append(label_sequence)
+            true_predictions.append(
+                pred_sequence
+            )
+
+            true_labels.append(
+                label_sequence
+            )
 
         return {
             "precision": precision_score(
@@ -313,7 +344,10 @@ def main():
         per_device_eval_batch_size=32,
         num_train_epochs=3,
         weight_decay=0.01,
-        evaluation_strategy="epoch",
+
+        # New Transformers API
+        eval_strategy="epoch",
+
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
@@ -345,9 +379,12 @@ def main():
     trainer.train()
 
     # 11. Validation evaluation
-    val_metrics = trainer.evaluate(val_ds)
+    val_metrics = trainer.evaluate(
+        val_ds
+    )
 
-    print("\n=== Validation Results ===")
+    print()
+    print("=== Validation Results ===")
     print(val_metrics)
 
     # 12. Test evaluation
@@ -356,14 +393,23 @@ def main():
         metric_key_prefix="test",
     )
 
-    print("\n=== Test Results ===")
+    print()
+    print("=== Test Results ===")
     print(test_metrics)
 
     # 13. Save artefact
-    trainer.save_model(str(output_dir))
-    tokenizer.save_pretrained(str(output_dir))
+    trainer.save_model(
+        str(output_dir)
+    )
 
-    print(f"\nNER model saved to: {output_dir}")
+    tokenizer.save_pretrained(
+        str(output_dir)
+    )
+
+    print()
+    print(
+        f"NER model saved to: {output_dir}"
+    )
 
 
 if __name__ == "__main__":

@@ -42,6 +42,7 @@
 - Macro-F1: 1.0000
 
 
+
 ## Lab 3B — NER Results
 
 - Checkpoint: xlm-roberta-base
@@ -213,19 +214,56 @@ verified through a new evaluation run rather than reported as measured gains.
 - Evaluation report: Generated
 - Model cards: 3 generated
 - Evaluation tests: 6 passed
-
 ## Lab 7 — Optimisation ladder
+
 | Rung | p50 | p99 | quality metric / paired Δ | Artefact size |
 |---|---:|---:|---|---:|
-| fp32 torch @512 padded | | | | |
-| fp32 torch @128 dynamic | | | | |
-| ONNX fp32 @128 | | | | |
-| ONNX INT8 @128 | | | | |
+| fp32 torch @512 padded | 293.76 ms | 1279.29 ms | Macro-F1 = 1.0000 | — |
+| fp32 torch @128 dynamic | 24.04 ms | 37.53 ms | Macro-F1 = 1.0000 | — |
+| ONNX fp32 @128 | 13.23 ms | 31.78 ms | Macro-F1 = 1.0000 | 1060.86 MB |
+| ONNX INT8 @128 | 5.39 ms | 7.25 ms | Macro-F1 = 1.0000 / Δ = 0.00 points | 265.65 MB |
 
-- HTTP p99, 16 concurrent:
-- classifier quantisation decision:
-- NER quantisation decision:
+### Classifier quantisation
 
+- INT8 bare p99: 7.25 ms
+- Speed-up vs FP32 Torch @512: 176.33x
+- FP32 Macro-F1: 1.0000
+- INT8 Macro-F1: 1.0000
+- Quality tax: 0.00 macro-F1 points
+- Artefact size reduction: 3.99x
+- Decision: Deploy ONNX INT8 classifier.
+
+### NER quantisation
+
+- ONNX FP32 p50: 11.97 ms
+- ONNX FP32 p99: 14.14 ms
+- ONNX INT8 p50: 5.10 ms
+- ONNX INT8 p99: 6.12 ms
+- Speed-up vs ONNX FP32: 2.31x
+- FP32 F1: 1.0000
+- INT8 F1: 1.0000
+- Quality tax: 0.00 F1 points
+- FP32 artefact size: 1058.61 MB
+- INT8 artefact size: 265.08 MB
+- Artefact size reduction: 3.99x
+- Decision: Use ONNX INT8 for NER because quantisation reduced latency and model size with no observed quality loss.
+
+### HTTP serving
+
+- Concurrency: 16
+- Duration: 60.11 s
+- Requests: 7064
+- Errors: 0
+- p50: 132.24 ms
+- p90: 152.66 ms
+- p95: 171.28 ms
+- p99: 181.66 ms
+- Throughput: 117.51 requests/sec
+- HTTP p99 <= 40 ms: FAIL
+- Zero-error requirement: PASS
+- Startup canaries: PASS
+- Serving contract: 2 passed
+- Note: The HTTP latency target was not met under 16 concurrent requests. Bare ONNX INT8 inference met its latency target, indicating that serving/concurrency overhead remains an optimisation opportunity.
 
 
 
