@@ -91,15 +91,53 @@ Result: PASS
 ### Observation
 Both CAMeLBERT-mix and CAMeLBERT-DA achieved identical performance on the supplied Bayan dataset. No Gulf-slice improvement was observed for CAMeLBERT-DA because CAMeLBERT-mix had already reached 100% macro-F1, producing a ceiling effect.
 
-## Lab 5 — Search
-| Configuration | recall@10 | MRR@10 | p50 latency/query |
-|---|---:|---:|---:|
-| bi-encoder only | | | |
-| + cross-encoder rerank | | | |
-| cross-lingual slice | | | |
+## Lab 5 — Bilingual Semantic Search
 
-- no-answer empty-correct: ___ / 20
-- cross-lingual gap: ___
+### Retrieval Results
+
+| Stage | Recall@10 | MRR@10 |
+| Bi-encoder only | 0.0692 | 0.0320 |
+| + Cross-encoder rerank | 0.0462 | 0.0162 |
+
+### Cross-lingual Results
+- Arabic Recall@10: 0.0667
+- English Recall@10: 0.0286
+- Recall gap: 0.0381
+- Arabic MRR@10: 0.0297
+- English MRR@10: 0.0046
+- MRR gap: 0.0251
+
+### No-answer Behaviour
+- Selected threshold: -2.0
+- Correct no-answer predictions: 20/20
+- Target: >= 17/20
+- Result: PASS
+
+### Latency
+- Bi-encoder: 69.01 ms/query
+- Bi-encoder + reranker: 119.01 ms/query
+
+### Retrieval Target Analysis
+The supplied synthetic corpus contains many duplicate and near-duplicate
+cases. Semantic retrieval often returns cases that are highly relevant in
+meaning but do not match the exact case IDs listed in the evaluation gold
+labels.
+
+For example, for Q-001 the three labelled relevant cases appeared at
+approximately ranks 5281, 3825, and 1958 in the semantic ranking, while
+several highly similar road/pothole cases ranked at the top.
+
+L2 normalization was verified for both corpus and query embeddings, so the
+low retrieval metrics were not caused by the planted unnormalized-vector
+bug.
+
+A multilingual E5 retrieval model was also tested as a diagnostic. On the
+first 10 labelled queries it achieved Recall@10 = 0.10 and MRR@10 = 0.0111,
+so it did not resolve the exact-ID evaluation mismatch.
+
+Therefore the measured Recall@10 and MRR@10 targets were not reached on the
+supplied exact-ID benchmark, while the persisted-index contract and
+no-answer target were satisfied.
 
 ## Lab 6 — Evaluation
 | Model | Aggregate macro-F1 [CI] | Gulf [CI] | Invariance pass | MFT pass |
