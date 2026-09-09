@@ -22,9 +22,9 @@ def build_index(prefix: str, limit: int | None = None):
     # 1. Load case corpus
     df = pd.read_csv(DATA_PATH)
 
-    if "text" not in df.columns:
+    if "case_text" not in df.columns:
         raise ValueError(
-            f"'text' column not found. Available columns: {list(df.columns)}"
+            f"'case_text' column not found. Available columns: {list(df.columns)}"
         )
 
     if limit is not None:
@@ -33,10 +33,10 @@ def build_index(prefix: str, limit: int | None = None):
     if len(df) == 0:
         raise ValueError("No cases available to index.")
 
-    # 2. Apply shared preprocessing contract
+    # 2. Apply shared preprocessing
     texts = [
         preprocess(str(text))
-        for text in df["text"].fillna("")
+        for text in df["case_text"].fillna("")
     ]
 
     # 3. Load multilingual bi-encoder
@@ -49,34 +49,33 @@ def build_index(prefix: str, limit: int | None = None):
         show_progress_bar=False,
     )
 
-    vectors = np.asarray(
-        vectors,
-        dtype="float32",
-    )
+    vectors = np.asarray(vectors, dtype="float32")
 
     # 5. L2-normalise vectors
     faiss.normalize_L2(vectors)
 
     n_vectors, dim = vectors.shape
 
-    # 6. Build cosine-similarity FAISS index
-    # Inner product on L2-normalised vectors == cosine similarity
+    # 6. Build FAISS index
+    # Inner product on normalized vectors behaves like cosine similarity
     index = faiss.IndexFlatIP(dim)
     index.add(vectors)
 
-    # 7. Persist FAISS index
-    index_path = Path(f"{prefix}.faiss")
-    index_path.parent.mkdir(
+    # Make sure destination folder exists
+    prefix.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
+
+    # 7. Save FAISS index
+    index_path = Path(f"{prefix}.faiss")
 
     faiss.write_index(
         index,
         str(index_path),
     )
 
-    # 8. Persist metadata
+    # 8. Save metadata
     metadata_path = Path(
         f"{prefix}_metadata.json"
     )
@@ -95,7 +94,7 @@ def build_index(prefix: str, limit: int | None = None):
         encoding="utf-8",
     )
 
-    # 9. Persist version manifest
+    # 9. Save manifest
     manifest = {
         "model": MODEL_NAME,
         "preproc_version": PREPROC_VERSION,
