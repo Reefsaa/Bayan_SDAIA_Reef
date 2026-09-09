@@ -108,7 +108,7 @@ class CaseSearch:
         if not isinstance(query, str):
             raise TypeError("query must be a string")
 
-        query = preprocess(query)
+        query = "query: " + preprocess(query)
 
         if not query.strip():
             return []

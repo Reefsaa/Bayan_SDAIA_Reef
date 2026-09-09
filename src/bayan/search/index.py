@@ -1,4 +1,4 @@
-"""Lab 5: versioned FAISS index build."""
+"""Lab 5: build a versioned FAISS search index."""
 
 import json
 from pathlib import Path
@@ -12,72 +12,60 @@ from bayan.preprocessing.core import PREPROC_VERSION, preprocess
 
 
 DATA_PATH = Path("data/search/bayan_cases.csv")
+MODEL_NAME = "intfloat/multilingual-e5-base"
 
-MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-
-def build_index(prefix: str, limit: int | None = None):
+def build_index(
+    prefix: str = "artifacts/search/case_index_v1",
+    limit=None,
+):
     prefix = Path(prefix)
+    prefix.parent.mkdir(parents=True, exist_ok=True)
 
-    # 1. Load case corpus
+    print("=== Lab 5: FAISS Index Build ===")
+    print("Model:", MODEL_NAME)
+    print("Preprocessing version:", PREPROC_VERSION)
+
     df = pd.read_csv(DATA_PATH)
-
-    if "case_text" not in df.columns:
-        raise ValueError(
-            f"'case_text' column not found. Available columns: {list(df.columns)}"
-        )
 
     if limit is not None:
         df = df.head(limit).copy()
 
-    if len(df) == 0:
-        raise ValueError("No cases available to index.")
-
-    # 2. Apply shared preprocessing
     texts = [
-        preprocess(str(text))
+        "passage: " + preprocess(str(text))
         for text in df["case_text"].fillna("")
     ]
 
-    # 3. Load multilingual bi-encoder
     model = SentenceTransformer(MODEL_NAME)
 
-    # 4. Encode corpus
     vectors = model.encode(
         texts,
+        batch_size=64,
+        show_progress_bar=True,
         convert_to_numpy=True,
-        show_progress_bar=False,
+        normalize_embeddings=True,
     )
 
-    vectors = np.asarray(vectors, dtype="float32")
+    vectors = np.asarray(
+        vectors,
+        dtype="float32",
+    )
 
-    # 5. L2-normalise vectors
+    # Keep explicit normalization for FAISS contract.
     faiss.normalize_L2(vectors)
 
-    n_vectors, dim = vectors.shape
+    dim = vectors.shape[1]
 
-    # 6. Build FAISS index
-    # Inner product on normalized vectors behaves like cosine similarity
     index = faiss.IndexFlatIP(dim)
     index.add(vectors)
 
-    # Make sure destination folder exists
-    prefix.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    # 7. Save FAISS index
     index_path = Path(f"{prefix}.faiss")
+    metadata_path = Path(f"{prefix}_metadata.json")
+    manifest_path = Path(f"{prefix}_manifest.json")
 
     faiss.write_index(
         index,
         str(index_path),
-    )
-
-    # 8. Save metadata
-    metadata_path = Path(
-        f"{prefix}_metadata.json"
     )
 
     metadata = df.to_dict(
@@ -94,20 +82,17 @@ def build_index(prefix: str, limit: int | None = None):
         encoding="utf-8",
     )
 
-    # 9. Save manifest
     manifest = {
         "model": MODEL_NAME,
         "preproc_version": PREPROC_VERSION,
-        "n_vectors": int(n_vectors),
+        "n_vectors": int(index.ntotal),
         "dim": int(dim),
         "index_type": "IndexFlatIP",
         "normalization": "L2",
+        "document_prefix": "passage: ",
+        "query_prefix": "query: ",
         "data_source": str(DATA_PATH),
     }
-
-    manifest_path = Path(
-        f"{prefix}_manifest.json"
-    )
 
     manifest_path.write_text(
         json.dumps(
@@ -118,19 +103,14 @@ def build_index(prefix: str, limit: int | None = None):
         encoding="utf-8",
     )
 
-    print("=== Lab 5: FAISS Index Build ===")
-    print(f"Model: {MODEL_NAME}")
-    print(f"Preprocessing version: {PREPROC_VERSION}")
-    print(f"Vectors: {n_vectors}")
-    print(f"Dimension: {dim}")
-    print(f"Index: {index_path}")
-    print(f"Metadata: {metadata_path}")
-    print(f"Manifest: {manifest_path}")
+    print("Vectors:", index.ntotal)
+    print("Dimension:", dim)
+    print("Index:", index_path)
+    print("Metadata:", metadata_path)
+    print("Manifest:", manifest_path)
 
-    return {
-        "index_path": str(index_path),
-        "metadata_path": str(metadata_path),
-        "manifest_path": str(manifest_path),
-        "n_vectors": int(n_vectors),
-        "dim": int(dim),
-    }
+    return index
+
+
+if __name__ == "__main__":
+    build_index()
